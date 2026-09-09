@@ -17,6 +17,7 @@
   "dependencies": {
     "@data-news/shared": "workspace:*",
     "@data-news/llm": "workspace:*",
+    "@data-news/settings": "workspace:*",
     "@data-news/tts": "workspace:*",
     "@data-news/templates": "workspace:*",
     "gsap": "^3.12.5",

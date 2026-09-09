@@ -77,7 +77,17 @@ async function validateScenes(script: VideoScript): Promise<string[]> {
 
 /** LLM Call#1：表格 → 视频脚本（Zod 校验 + 模板变量校验失败自动回喂重试） */
 export async function planScript(table: Table, opts: PlanOptions = {}): Promise<VideoScript> {
-  const client = opts.client ?? new ArkClient();
+  let client = opts.client;
+  if (!client) {
+    // 优先用设置中心的 LLM 配置（GUI 打包环境无 shell 环境变量），缺省回退 env
+    const { loadSettings } = await import("@data-news/settings");
+    const s = await loadSettings();
+    client = new ArkClient({
+      apiKey: s.llm.apiKey,
+      baseURL: s.llm.baseUrl,
+      model: s.llm.model,
+    });
+  }
   const docs = await templateDocs();
   const system = SYSTEM_PROMPT.replace("{{TEMPLATE_DOCS}}", docs);
 

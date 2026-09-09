@@ -22,6 +22,7 @@ async function locateGsap(explicit?: string): Promise<string | undefined> {
   const candidates = explicit
     ? [explicit]
     : [
+        ...(process.env.GSAP_FILE ? [process.env.GSAP_FILE] : []),
         fileUrlSibling("gsap.min.js"),
         path.join(process.cwd(), "node_modules", "gsap", "dist", "gsap.min.js"),
         path.join(process.cwd(), "node_modules", ".pnpm", "node_modules", "gsap", "dist", "gsap.min.js"),

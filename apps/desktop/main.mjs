@@ -18,6 +18,16 @@ let serverProc = null;
 let win = null;
 
 // 资源定位：打包后 server 在 process.resourcesPath/bin/，开发时在仓库构建目录
+function locateGsap() {
+  const candidates = [
+    path.join(process.resourcesPath ?? "", "templates", "gsap.min.js"),
+    path.join(process.cwd(), "build", "assets", "templates", "gsap.min.js"),
+    path.join(process.cwd(), "..", "..", "build", "assets", "templates", "gsap.min.js"),
+  ];
+  for (const c of candidates) if (existsSync(c)) return c;
+  return null;
+}
+
 function locateTemplates() {
   const candidates = [
     path.join(process.resourcesPath ?? "", "templates"),
@@ -78,8 +88,10 @@ function startServer() {
   const envFile = path.join(app.getPath("userData"), ".env");
   const webRoot = locateWebDist();
   const tplRoot = locateTemplates();
+  const gsapFile = locateGsap();
   const env = { ...process.env, JOB_DATA_DIR: userData, STANDALONE: "1", NO_OPEN: "1",
-    ...(webRoot ? { WEB_ROOT: webRoot } : {}), ...(tplRoot ? { TEMPLATE_ROOT: tplRoot } : {}) };
+    ...(webRoot ? { WEB_ROOT: webRoot } : {}), ...(tplRoot ? { TEMPLATE_ROOT: tplRoot } : {}),
+    ...(gsapFile ? { GSAP_FILE: gsapFile } : {}) };
   if (existsSync(envFile)) {
     for (const line of readFileSync(envFile, "utf8").split("\n")) {
       const m = line.match(/^([A-Z_]+)=(.*)$/);
@@ -117,6 +129,8 @@ function createWindow() {
   win.on("closed", () => { win = null; });
 }
 
+// 固定 userData 路径（productName 与包名不一致时 getPath 会取包名 @data-news）
+app.setPath("userData", path.join(app.getPath("appData"), "dataNews"));
 app.on("before-quit", () => { app.quitting = true; });
 app.on("will-quit", () => { if (serverProc) { try { serverProc.kill(); } catch {} } });
 app.on("window-all-closed", () => app.quit());

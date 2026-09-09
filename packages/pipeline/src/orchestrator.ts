@@ -204,11 +204,13 @@ async function locateGsapForCompose(): Promise<string | undefined> {
     if (url) primary = fileURLToPath(new URL("../node_modules/gsap/dist/gsap.min.js", url));
   } catch { /* CJS 环境 */ }
   const candidates = [
+    ...(process.env.GSAP_FILE ? [process.env.GSAP_FILE] : []),
     ...(primary ? [primary] : []),
     path.join(process.cwd(), "node_modules", "gsap", "dist", "gsap.min.js"),
     path.join(process.cwd(), "node_modules", ".pnpm", "node_modules", "gsap", "dist", "gsap.min.js"),
     // pkg 快照路径：可执行文件旁的 resources/
     path.join(path.dirname(process.execPath), "resources", "gsap.min.js"),
+    path.join(path.dirname(process.execPath), "resources", "templates", "gsap.min.js"),
   ];
   for (const c of candidates) {
     try {
