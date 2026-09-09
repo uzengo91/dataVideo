@@ -1,4 +1,5 @@
 import { readFile } from "node:fs/promises";
+import { existsSync } from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { z } from "zod";
@@ -42,9 +43,14 @@ const __dirname = path.dirname(
 export const TEMPLATE_PKG_ROOT = path.resolve(__dirname, "..");
 export async function resolveTemplateRoot(): Promise<string> {
   // 打包发行时 manifest 放在可执行文件旁的 resources/templates/
-  const portable = path.join(path.dirname(process.execPath), "resources", "templates");
-  if (await readFile(path.join(portable, "manifest.json"), "utf8").then(() => true).catch(() => false)) {
-    return portable;
+  // 用 existsSync（真实文件系统）：pkg 快照内 readFile 会命中虚拟 FS 报错
+  const candidates = [
+    path.join(path.dirname(process.execPath), "resources", "templates"), // 便携发行
+    ...(process.env.TEMPLATE_ROOT ? [process.env.TEMPLATE_ROOT] : []),     // 显式指定（GUI 等）
+    TEMPLATE_PKG_ROOT,                                                     // 仓库内直跑
+  ];
+  for (const c of candidates) {
+    if (existsSync(path.join(c, "manifest.json"))) return c;
   }
   return TEMPLATE_PKG_ROOT;
 }

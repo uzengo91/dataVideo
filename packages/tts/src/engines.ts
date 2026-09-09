@@ -398,12 +398,11 @@ const noVoice: EngineDef = {
   needsKey: false,
   voices: [],
   synth: async ({ text, outFile }) => {
-    // 生成与文本长度匹配的静音（约 0.18s/字）
+    // 生成与文本长度匹配的静音（约 0.18s/字），直接编码 mp3。
+    // 注意：不能走 normalizeAudio——首尾静音裁剪会把纯静音裁成 0 秒空文件。
     const dur = Math.max(2, text.length * 0.18);
-    const tmp = path.join(os.tmpdir(), `dn-sil-${Date.now()}.mp3`);
-    await run("ffmpeg", ["-y", "-v", "error", "-f", "lavfi", "-i", `anullsrc=r=44100:cl=mono`, "-t", String(dur), tmp]);
-    await normalizeAudio(tmp, outFile);
-    await rm(tmp, { force: true });
+    await run("ffmpeg", ["-y", "-v", "error", "-f", "lavfi", "-i", "anullsrc=r=44100:cl=mono", "-t", dur.toFixed(2),
+      "-codec:a", "libmp3lame", "-q:a", "4", outFile]);
   },
 };
 

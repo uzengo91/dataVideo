@@ -24,7 +24,9 @@ void app.register(cors, { origin: process.env.WEB_ORIGIN ?? "http://localhost:30
 // 打包发行模式（STANDALONE=1）：直接托管 web 构建产物，单端口服务
 if (process.env.STANDALONE === "1") {
   const candidates = [
+    ...(process.env.WEB_ROOT ? [process.env.WEB_ROOT] : []),
     path.join(path.dirname(process.execPath), "resources", "web"), // pkg 便携布局
+    path.join(path.dirname(process.execPath), "resources", "web-dist"), // Electron GUI 布局
     path.resolve(process.cwd(), "../web/dist"),                     // 仓库内直跑
   ];
   let webRoot = candidates[0];
