@@ -16,6 +16,7 @@ const PORT = 8787;
 const BASE = `http://127.0.0.1:${PORT}`;
 let serverProc = null;
 let win = null;
+let alreadyRunning = false;
 
 // 资源定位：打包后 server 在 process.resourcesPath/bin/，开发时在仓库构建目录
 function locateGsap() {
@@ -74,7 +75,30 @@ function waitForServer(timeoutMs = 30000) {
   });
 }
 
-function startServer() {
+/** 探测端口上是否已有本应用实例在运行 */
+function probeExisting(timeoutMs = 4000) {
+  return new Promise((resolve) => {
+    const req = http.get(`${BASE}/api/health`, { timeout: timeoutMs }, (res) => {
+      res.resume();
+      let body = "";
+      res.on("data", (d) => (body += d));
+      res.on("end", () => {
+        try { resolve(res.statusCode === 200 && JSON.parse(body).ok === true); }
+        catch { resolve(false); }
+      });
+    });
+    req.on("timeout", () => { req.destroy(); resolve(false); });
+    req.on("error", () => resolve(false));
+  });
+}
+
+async function startServer() {
+  // 已有实例在跑：直接用它的窗口，不再启动第二个服务
+  if (await probeExisting(1500)) {
+    console.log("[gui] existing dataNews instance detected on :" + PORT);
+    alreadyRunning = true;
+    return;
+  }
   const bin = locateServer();
   if (!bin) {
     dialog.showErrorBox("缺少服务组件", "未找到 dataVideo-server，请重新安装应用。");
@@ -136,9 +160,9 @@ app.on("will-quit", () => { if (serverProc) { try { serverProc.kill(); } catch {
 app.on("window-all-closed", () => app.quit());
 
 app.whenReady().then(async () => {
-  startServer();
   try {
-    await waitForServer();
+    await startServer();
+    if (!alreadyRunning) await waitForServer();
     await createWindow();
   } catch (e) {
     dialog.showErrorBox("启动失败", String(e.message ?? e));

@@ -293,19 +293,49 @@ app.get<{ Params: { id: string; kind: string } }>("/api/jobs/:id/download/:kind"
   return reply.send(await readFile(file));
 });
 
+function openBrowser(url: string) {
+  const mod = process.platform === "darwin" ? "open" : process.platform === "win32" ? "start" : "xdg-open";
+  const child = spawn(mod, process.platform === "win32" ? ["", url] : [url], {
+    shell: process.platform === "win32", detached: true, stdio: "ignore",
+  });
+  child.unref();
+}
+
+/** 端口被占时探测是否为本应用的已有实例（health 且带 ok 标记） */
+function probeExistingInstance(url: string, timeoutMs = 4000): Promise<boolean> {
+  return new Promise((resolve) => {
+    const req = fetch(`${url}/api/health`, { signal: AbortSignal.timeout(timeoutMs) });
+    req.then(async (r) => {
+      try {
+        const body = (await r.json()) as { ok?: boolean };
+        resolve(r.ok && body.ok === true);
+      } catch { resolve(false); }
+    }).catch(() => resolve(false));
+  });
+}
+
 const start = async () => {
   try {
     await app.listen({ port: PORT, host: "0.0.0.0" });
     app.log.info(`data-news server listening on :${PORT}`);
     // 本地软件体验：启动后自动打开浏览器（standalone 模式）
     if (process.env.STANDALONE === "1" && !process.env.NO_OPEN) {
-      const mod = process.platform === "darwin" ? "open" : process.platform === "win32" ? "start" : "xdg-open";
-      const child = spawn(mod, process.platform === "win32" ? ["", `http://localhost:${PORT}`] : [`http://localhost:${PORT}`], {
-        shell: process.platform === "win32", detached: true, stdio: "ignore",
-      });
-      child.unref();
+      openBrowser(`http://localhost:${PORT}`);
     }
   } catch (e) {
+    const errText = String((e as Error)?.message ?? "") + String((e as Error)?.stack ?? "");
+    if ((e as { code?: string }).code === "EADDRINUSE" || errText.includes("EADDRINUSE")) {
+      // 端口被占：若是本应用已运行的实例，视为"已在运行"——打开页面即完成启动语义
+      const url = `http://localhost:${PORT}`;
+      const isOurs = await probeExistingInstance(url);
+      if (isOurs) {
+        app.log.info(`port ${PORT} already served by a running dataNews instance — opening it`);
+        if (process.env.STANDALONE === "1" && !process.env.NO_OPEN) openBrowser(url);
+        process.exit(0);
+      }
+      app.log.error(`port ${PORT} is occupied by another program; set PORT to a free port`);
+      process.exit(1);
+    }
     app.log.error(e);
     process.exit(1);
   }
