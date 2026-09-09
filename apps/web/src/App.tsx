@@ -1,4 +1,5 @@
 import React, { useCallback, useEffect, useRef, useState } from "react";
+import { useI18n } from "./i18n.js";
 
 type JobStatus =
   | "queued" | "ingesting" | "scripting" | "tts" | "composing"
@@ -88,12 +89,8 @@ function enginePresetVoices(engines: EngineInfo[]): { voiceName: string; label: 
   return out;
 }
 
-const STATUS_TEXT: Record<JobStatus, string> = {
-  queued: "排队中", ingesting: "解析 CSV", scripting: "AI 生成脚本", tts: "合成语音",
-  composing: "装配工程", rendering: "渲染视频", verifying: "校验产物", done: "完成", failed: "失败",
-};
-
 export default function App() {
+  const { t, lang, setLang } = useI18n();
   const [step, setStep] = useState<1 | 2 | 3 | 4>(1);
   const [csv, setCsv] = useState(SAMPLE_CSV);
   const [csvMode, setCsvMode] = useState<"paste" | "upload">("paste");
@@ -222,10 +219,16 @@ export default function App() {
     <div className="container">
       <div className="topbar">
         <div>
-          <h1>AI 数据解说短视频工厂</h1>
-          <p className="subtitle">粘贴/上传 CSV → AI 起草脚本 → 确认文案与模板 → 无幻觉 1080p60 数据视频</p>
+          <h1>{t("app.title")}</h1>
+          <p className="subtitle">{t("app.subtitle")}</p>
         </div>
-        <button className="ghost" onClick={() => setSettingsOpen(true)}>⚙ 设置</button>
+        <div className="row">
+            <select className="text-input lang-select" value={lang} onChange={(e) => setLang(e.target.value as never)} title={t("language.label")}>
+              <option value="zh-CN">中文</option>
+              <option value="en">English</option>
+            </select>
+            <button className="ghost" onClick={() => setSettingsOpen(true)}>{t("app.settings")}</button>
+          </div>
       </div>
 
       {settingsOpen && (
@@ -235,17 +238,17 @@ export default function App() {
       <div className="steps">
         {([1, 2, 3, 4] as const).map((s) => (
           <div key={s} className={`step-chip ${step === s ? "active" : step > s ? "done" : ""}`}>
-            {s === 1 ? "① 粘贴/上传数据" : s === 2 ? "② 生成设定" : s === 3 ? "③ 确认脚本" : "④ 渲染出片"}
+            {t(`steps.s${s}`)}
           </div>
         ))}
       </div>
 
       {step === 1 && (
         <div className="card">
-          <h2>提供你的 CSV 数据</h2>
+          <h2>{t("step1.title")}</h2>
           <div className="row" style={{ marginBottom: 12 }}>
-            <label className={`mode-tab ${csvMode === "paste" ? "on" : ""}`} onClick={() => setCsvMode("paste")}>📋 粘贴文本</label>
-            <label className={`mode-tab ${csvMode === "upload" ? "on" : ""}`} onClick={() => setCsvMode("upload")}>📁 上传文件</label>
+            <label className={`mode-tab ${csvMode === "paste" ? "on" : ""}`} onClick={() => setCsvMode("paste")}>{t("step1.paste")}</label>
+            <label className={`mode-tab ${csvMode === "upload" ? "on" : ""}`} onClick={() => setCsvMode("upload")}>{t("step1.upload")}</label>
           </div>
           {csvMode === "paste" ? (
             <textarea value={csv} onChange={(e) => { setCsv(e.target.value); setValidation(null); }} spellCheck={false} />
@@ -255,15 +258,15 @@ export default function App() {
               onDrop={(e) => { e.preventDefault(); const f = e.dataTransfer.files[0]; if (f) void onFileChosen(f); }}>
               <input id="csv-file" type="file" accept=".csv,.txt,text/csv" style={{ display: "none" }}
                 onChange={(e) => { const f = e.target.files?.[0]; if (f) void onFileChosen(f); }} />
-              <p style={{ fontSize: 16, marginBottom: 8 }}>拖拽 CSV 文件到此处，或</p>
-              <button className="ghost" onClick={() => document.getElementById("csv-file")?.click()}>选择文件</button>
-              {csv && <p className="hint" style={{ marginTop: 12 }}>已加载 {csv.split("\n").length - 1} 行数据（点击"下一步"自动校验格式）</p>}
+              <p style={{ fontSize: 16, marginBottom: 8 }}>{t("step1.dropHere")}</p>
+              <button className="ghost" onClick={() => document.getElementById("csv-file")?.click()}>{t("step1.chooseFile")}</button>
+              {csv && <p className="hint" style={{ marginTop: 12 }}>{t("step1.loadedRows", { rows: csv.split("\n").length - 1 })}</p>}
             </div>
           )}
           {validation && (
             <div className={validation.ok ? "valid-box" : "error-box"}>
               {validation.ok ? (
-                <>✅ 格式合法：{validation.rowCount} 行数据，{validation.columns?.length} 列（数字列：{validation.numericCols?.join(", ") || "无"}）
+                <>{t("step1.valid", { rows: validation.rowCount ?? 0, cols: validation.columns?.length ?? 0, numeric: validation.numericCols?.join(", ") || "—" })}
                   {validation.warnings?.map((w, i) => <div key={i} style={{ color: "#fbbf24" }}>⚠ {w}</div>)}
                 </>
               ) : <>❌ {validation.error}</>}
@@ -271,7 +274,7 @@ export default function App() {
           )}
           <div className="row" style={{ marginTop: 16 }}>
             <button className="primary" disabled={rows < 2 || validating} onClick={goStep2}>
-              {validating ? "校验中…" : "下一步：校验并生成设定"}
+              {validating ? t("step1.validating") : t("step1.next")}
             </button>
           </div>
         </div>
@@ -280,21 +283,21 @@ export default function App() {
       {step === 2 && (
         <>
           <div className="card">
-            <h2>视频设定</h2>
+            <h2>{t("step2.title")}</h2>
             <div className="row" style={{ marginBottom: 12 }}>
-              <span className="subtitle" style={{ margin: 0 }}>渲染档位</span>
-              <label className="radio"><input type="radio" checked={quality === "draft"} onChange={() => setQuality("draft")} />快速预览（draft）</label>
-              <label className="radio"><input type="radio" checked={quality === "standard"} onChange={() => setQuality("standard")} />正式成片（standard）</label>
+              <span className="subtitle" style={{ margin: 0 }}>{t("step2.quality")}</span>
+              <label className="radio"><input type="radio" checked={quality === "draft"} onChange={() => setQuality("draft")} />{t("step2.draft")}</label>
+              <label className="radio"><input type="radio" checked={quality === "standard"} onChange={() => setQuality("standard")} />{t("step2.standard")}</label>
             </div>
             <div className="row">
-              <span className="subtitle" style={{ margin: 0 }}>主题提示（可选）</span>
-              <input className="text-input" value={titleHint} onChange={(e) => setTitleHint(e.target.value)} placeholder="如：半年经营回顾" />
+              <span className="subtitle" style={{ margin: 0 }}>{t("step2.themeHint")}</span>
+              <input className="text-input" value={titleHint} onChange={(e) => setTitleHint(e.target.value)} placeholder={t("step2.themeHintPh")} />
             </div>
           </div>
           <div className="row">
-            <button className="ghost" onClick={() => setStep(1)}>返回修改数据</button>
+            <button className="ghost" onClick={() => setStep(1)}>{t("step2.back")}</button>
             <button className="primary" disabled={previewing} onClick={generateDraft}>
-              {previewing ? "AI 起草中…（约 1 分钟）" : "生成脚本草稿"}
+              {previewing ? t("step2.drafting") : t("step2.draftBtn")}
             </button>
           </div>
           {previewError && <div className="error-box">{previewError}</div>}
@@ -305,17 +308,17 @@ export default function App() {
         <>
           <div className="card">
             <h2>
-              确认脚本与配音
-              <span style={{ float: "right", color: "var(--muted)", fontSize: 13 }}>所有文案均可编辑</span>
+              {t("step3.title")}
+              <span style={{ float: "right", color: "var(--muted)", fontSize: 13 }}>{t("step3.allEditable")}</span>
             </h2>
 
             <div className="edit-block">
-              <label className="edit-label">视频标题（显示在分享/文件名，不出现在画面）</label>
+              <label className="edit-label">{t("step3.videoTitle")}</label>
               <input className="text-input" value={script.title} onChange={(e) => setScript({ ...script, title: e.target.value })} />
             </div>
 
             <div className="edit-block">
-              <label className="edit-label">主题风格（点击卡片切换，预览该主题的真实渲染样例）</label>
+              <label className="edit-label">{t("step3.themeStyle")}</label>
               <div className="theme-grid">
                 {THEMES.map((t) => (
                   <button key={t.id} className={`theme-card ${script.theme === t.id ? "selected" : ""}`}
@@ -330,22 +333,22 @@ export default function App() {
             </div>
 
             <div className="edit-block">
-              <label className="edit-label">配音音色（免费引擎开箱即用；云引擎在 ⚙设置 里配置 API Key 后自动出现）</label>
+              <label className="edit-label">{t("step3.voice")}</label>
               <div className="row">
                 <select className="text-input voice-select" value={voiceName} onChange={(e) => setVoiceName(e.target.value)}>
                   {allVoices.map((v, i) => <option key={i} value={v.voiceName}>{v.label}</option>)}
                 </select>
                 <button className="ghost" disabled={previewingVoice !== null}
                   onClick={() => playPreview("大家好，这是配音音色试听效果，数据不会说谎。", voiceName, "loading")}>
-                  {previewingVoice === "loading" ? "合成中…" : previewingVoice === "playing" ? "播放中…" : "▶ 试听"}
+                  {previewingVoice === "loading" ? t("step3.synthesizing") : previewingVoice === "playing" ? t("step3.playing") : t("step3.preview")}
                 </button>
               </div>
             </div>
 
             <div className="edit-block">
               <label className="edit-label">
-                分镜脚本（{script.scenes.length} 个场景）
-                <span className="edit-subhint">每行从上到下依次播放：下拉框换该镜头的画面模板 → 屏幕标题/副标题改画面文字 → 解说词决定这一段的配音，改动后都会重新配音合成</span>
+                {t("step3.scenes", { count: script.scenes.length })}
+                <span className="edit-subhint">{t("step3.scenesHint")}</span>
               </label>
               {script.scenes.map((s, i) => (
                 <div className="scene-editor" key={i}>
@@ -363,19 +366,19 @@ export default function App() {
                   </div>
                   <div className="field-row">
                     <div className="field">
-                      <label className="edit-label">屏幕标题（画面大字，≤30 字）</label>
-                      <input className="text-input" value={s.headline} onChange={(e) => patchScene(i, { headline: e.target.value })} placeholder="如：Q3 营收" />
+                      <label className="edit-label">{t("step3.sceneHeadline")}</label>
+                      <input className="text-input" value={s.headline} onChange={(e) => patchScene(i, { headline: e.target.value })} placeholder={t("step3.sceneHeadlinePh")} />
                     </div>
                     <div className="field">
-                      <label className="edit-label">副标题（画面小字，可留空）</label>
-                      <input className="text-input" value={s.subline} onChange={(e) => patchScene(i, { subline: e.target.value })} placeholder="如：单位：人民币" />
+                      <label className="edit-label">{t("step3.sceneSubline")}</label>
+                      <input className="text-input" value={s.subline} onChange={(e) => patchScene(i, { subline: e.target.value })} placeholder={t("step3.sceneSublinePh")} />
                     </div>
                   </div>
                   <div className="field">
                     <label className="edit-label">
-                      解说词（配音逐字朗读，15~80 字效果最佳）
+                      {t("step3.sceneNarration")}
                       <button className="link-btn" onClick={() => previewSceneVoice(i)} disabled={previewingVoice === `scene-${i}`}>
-                        {previewingVoice === `scene-${i}` ? "合成中…" : "▶ 试听本段"}
+                        {previewingVoice === `scene-${i}` ? t("step3.synthesizing") : t("step3.listenThis")}
                       </button>
                     </label>
                     <textarea className="narration-input" value={s.narration} onChange={(e) => patchScene(i, { narration: e.target.value })} rows={2} />
@@ -385,8 +388,8 @@ export default function App() {
             </div>
           </div>
           <div className="row">
-            <button className="ghost" onClick={() => setStep(2)}>返回重新起草</button>
-            <button className="primary" onClick={startJob}>确认无误，开始渲染</button>
+            <button className="ghost" onClick={() => setStep(2)}>{t("step3.back")}</button>
+            <button className="primary" onClick={startJob}>{t("step3.confirm")}</button>
           </div>
         </>
       )}
@@ -394,8 +397,8 @@ export default function App() {
       {step === 4 && job && (
         <div className="card">
           <h2>
-            {rendering ? "正在生成…" : job.status === "done" ? "生成完成" : "生成失败"}
-            <span style={{ float: "right", color: "var(--muted)", fontSize: 14 }}>任务 {job.jobId}</span>
+            {rendering ? t("step4.working") : job.status === "done" ? t("step4.done") : t("step4.failed")}
+            <span style={{ float: "right", color: "var(--muted)", fontSize: 14 }}>{t("step4.taskId", { id: job.jobId })}</span>
           </h2>
           <div className="progress-bar">
             <div className="progress-fill" style={{
@@ -404,17 +407,17 @@ export default function App() {
             }} />
           </div>
           <div className="status-line">
-            <span>{STATUS_TEXT[job.status]} {job.message ? `· ${job.message}` : ""}</span>
-            <span>{rendering && renderPct > 0 ? `渲染 ${renderPct}%` : `${job.progress}%`}</span>
+            <span>{t(`status.${job.status}`)} {job.message ? `· ${job.message}` : ""}</span>
+            <span>{rendering && renderPct > 0 ? t("step4.rendering", { pct: renderPct }) : `${job.progress}%`}</span>
           </div>
           {job.status === "failed" && <div className="error-box">{job.error}</div>}
           {job.status === "done" && job.downloads && (
             <>
               <video className="result" src={`/api/jobs/${job.jobId}/download/video`} controls />
               <div className="dl-row">
-                <a href={`/api/jobs/${job.jobId}/download/video`} download><button className="primary">下载视频 MP4</button></a>
-                <a href={`/api/jobs/${job.jobId}/download/project`} download><button className="ghost">下载工程包</button></a>
-                <button className="ghost" onClick={() => { setJob(null); setStep(3); }}>返回改脚本再来一条</button>
+                <a href={`/api/jobs/${job.jobId}/download/video`} download><button className="primary">{t("step4.downloadVideo")}</button></a>
+                <a href={`/api/jobs/${job.jobId}/download/project`} download><button className="ghost">{t("step4.downloadProject")}</button></a>
+                <button className="ghost" onClick={() => { setJob(null); setStep(3); }}>{t("step4.redo")}</button>
               </div>
             </>
           )}
@@ -435,6 +438,7 @@ function SettingsModal({ engines, tab, setTab, onClose }: {
     llm: { provider: string; apiKey?: string; baseUrl?: string; model?: string };
     tts: Record<string, Record<string, unknown>>;
   } | null>(null);
+  const { t } = useI18n();
   const [saved, setSaved] = useState(false);
   const [testing, setTesting] = useState(false);
   const [testResult, setTestResult] = useState<string>("");
@@ -458,7 +462,7 @@ function SettingsModal({ engines, tab, setTab, onClose }: {
         body: JSON.stringify({ ...settings.llm, save: true }),
       });
       const d = await r.json();
-      setTestResult(d.ok ? `✅ 连通（${d.model}，${d.elapsedMs}ms）` : `❌ ${d.error}`);
+      setTestResult(d.ok ? t("settings.testOk", { model: d.model, ms: d.elapsedMs }) : `❌ ${d.error}`);
     } catch (e) { setTestResult(`❌ ${(e as Error).message}`); } finally { setTesting(false); }
   };
 
@@ -470,18 +474,18 @@ function SettingsModal({ engines, tab, setTab, onClose }: {
     <div className="modal-mask" onClick={onClose}>
       <div className="modal" onClick={(e) => e.stopPropagation()}>
         <div className="modal-head">
-          <h2>设置</h2>
-          <button className="ghost" onClick={onClose}>关闭</button>
+          <h2>{t("settings.title")}</h2>
+          <button className="ghost" onClick={onClose}>{t("settings.close")}</button>
         </div>
         <div className="tabs">
-          <button className={`tab ${tab === "tts" ? "on" : ""}`} onClick={() => setTab("tts")}>配音引擎（TTS）</button>
-          <button className={`tab ${tab === "llm" ? "on" : ""}`} onClick={() => setTab("llm")}>AI 脚本（LLM）</button>
+          <button className={`tab ${tab === "tts" ? "on" : ""}`} onClick={() => setTab("tts")}>{t("settings.tabTts")}</button>
+          <button className={`tab ${tab === "llm" ? "on" : ""}`} onClick={() => setTab("llm")}>{t("settings.tabLlm")}</button>
         </div>
 
         {tab === "tts" && (
           <div className="engines-list">
             <p className="hint" style={{ marginBottom: 12 }}>
-              引擎命名与 MoneyPrinterTurbo 一致。免费引擎无需配置；云引擎填入 API Key 后，确认页音色下拉会自动出现该引擎音色。
+              {t("settings.ttsHint")}
             </p>
             {engines.map((e) => {
               const cfg = settings.tts[e.id] ?? {};
@@ -491,12 +495,12 @@ function SettingsModal({ engines, tab, setTab, onClose }: {
                 <div className="engine-card" key={e.id}>
                   <div className="engine-head">
                     <b>{e.label}</b>
-                    <span className="engine-tag">{e.free ? "免费" : e.selfHosted ? "自托管" : "需 Key"}</span>
+                    <span className="engine-tag">{e.free ? t("settings.free") : e.selfHosted ? t("settings.selfHosted") : t("settings.needsKey")}</span>
                   </div>
                   {(e.needsKey || e.fields.length > 0) && (
                     <div className="engine-fields">
                       {e.needsKey && (
-                        <input className="text-input" type="password" placeholder="API Key"
+                        <input className="text-input" type="password" placeholder={t("settings.apiKey")}
                           value={String(cfg.apiKey ?? "")} onChange={(ev) => setCfg({ apiKey: ev.target.value })} />
                       )}
                       {e.fields.map((f) => (
@@ -516,32 +520,32 @@ function SettingsModal({ engines, tab, setTab, onClose }: {
             <div className="row" style={{ marginBottom: 12 }}>
               <label className="radio">
                 <input type="radio" checked={llm.provider === "openai"} onChange={() => setSettings({ ...settings, llm: { ...llm, provider: "openai" } })} />
-                OpenAI 兼容（GLM / DeepSeek / Kimi / OpenAI…）
+                {t("settings.llmProviderOpenai")}
               </label>
               <label className="radio">
                 <input type="radio" checked={llm.provider === "claude"} onChange={() => setSettings({ ...settings, llm: { ...llm, provider: "claude" } })} />
-                Claude（Anthropic）
+                {t("settings.llmProviderClaude")}
               </label>
             </div>
-            <label className="edit-label">API Key</label>
+            <label className="edit-label">{t("settings.apiKey")}</label>
             <input className="text-input" type="password" placeholder="sk-…"
               value={String(llm.apiKey ?? "")} onChange={(e) => setSettings({ ...settings, llm: { ...llm, apiKey: e.target.value } })} />
-            <label className="edit-label">Base URL{llm.provider === "claude" ? "（默认 https://api.anthropic.com/v1）" : "（可选，如中转/兼容端点）"}</label>
-            <input className="text-input" placeholder={llm.provider === "claude" ? "https://api.anthropic.com/v1" : "https://api.openai.com/v1"}
+            <label className="edit-label">{t("settings.baseUrl")}{llm.provider === "claude" ? ` (${t("settings.baseUrlClaudePh")})` : ""}</label>
+            <input className="text-input" placeholder={llm.provider === "claude" ? t("settings.baseUrlClaudePh") : t("settings.baseUrlOpenaiPh")}
               value={String(llm.baseUrl ?? "")} onChange={(e) => setSettings({ ...settings, llm: { ...llm, baseUrl: e.target.value } })} />
-            <label className="edit-label">模型（可选）</label>
-            <input className="text-input" placeholder={llm.provider === "claude" ? "claude-sonnet-4-5" : "glm-5.3-flash / gpt-4o-mini …"}
+            <label className="edit-label">{t("settings.model")}</label>
+            <input className="text-input" placeholder={llm.provider === "claude" ? t("settings.modelClaudePh") : t("settings.modelOpenaiPh")}
               value={String(llm.model ?? "")} onChange={(e) => setSettings({ ...settings, llm: { ...llm, model: e.target.value } })} />
             <div className="row" style={{ marginTop: 12 }}>
-              <button className="ghost" disabled={testing} onClick={testLlm}>{testing ? "测试中…" : "保存并测试连通"}</button>
+              <button className="ghost" disabled={testing} onClick={testLlm}>{testing ? t("settings.testing") : t("settings.saveAndTest")}</button>
               {testResult && <span className={testResult.startsWith("✅") ? "ok-text" : "err-text"}>{testResult}</span>}
             </div>
           </div>
         )}
 
         <div className="modal-foot">
-          {saved && <span className="ok-text">已保存 ✓</span>}
-          <button className="primary" onClick={save}>保存设置</button>
+          {saved && <span className="ok-text">{t("settings.saved")}</span>}
+          <button className="primary" onClick={save}>{t("settings.save")}</button>
         </div>
       </div>
     </div>

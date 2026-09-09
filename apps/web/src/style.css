@@ -166,3 +166,4 @@ video.result { width: 100%; border-radius: 12px; background: #000; margin: 16px 
 .modal-foot { display: flex; justify-content: flex-end; align-items: center; gap: 12px; margin-top: 18px; }
 .ok-text { color: var(--accent); font-size: 14px; }
 .err-text { color: var(--accent2); font-size: 14px; }
+.lang-select { width: auto; min-width: 110px; padding: 8px 10px; }

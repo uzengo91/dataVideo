@@ -1,0 +1,105 @@
+{
+  "app": {
+    "title": "AI Data Video Factory",
+    "subtitle": "Paste/upload CSV → AI-drafted script → confirm copy & templates → hallucination-free 1080p60 data videos",
+    "settings": "⚙ Settings"
+  },
+  "steps": {
+    "s1": "① Paste/Upload Data",
+    "s2": "② Configure",
+    "s3": "③ Confirm Script",
+    "s4": "④ Render"
+  },
+  "step1": {
+    "title": "Provide your CSV data",
+    "paste": "📋 Paste text",
+    "upload": "📁 Upload file",
+    "dropHere": "Drop a CSV file here, or",
+    "chooseFile": "Choose file",
+    "loadedRows": "Loaded {rows} rows (format is validated on Next)",
+    "next": "Next: Validate & Configure",
+    "validating": "Validating…",
+    "valid": "Valid: {rows} rows, {cols} columns (numeric: {numeric})",
+    "warnNoNumeric": "No numeric column detected — chart templates will have no values to show",
+    "warnFewRows": "Fewer than 2 rows; at least 2 recommended"
+  },
+  "step2": {
+    "title": "Video Settings",
+    "quality": "Render quality",
+    "draft": "Fast preview (draft)",
+    "standard": "Final (standard)",
+    "themeHint": "Topic hint (optional)",
+    "themeHintPh": "e.g. Half-year review",
+    "back": "Back to data",
+    "draftBtn": "Generate script draft",
+    "drafting": "Drafting… (~1 min)"
+  },
+  "step3": {
+    "title": "Confirm Script & Voice",
+    "allEditable": "All copy is editable",
+    "videoTitle": "Video title (used for sharing/filename, not shown on screen)",
+    "themeStyle": "Theme (click a card to switch; previews show real renders)",
+    "voice": "Voice (free engines work out of the box; cloud engines appear after configuring API keys in ⚙ Settings)",
+    "preview": "▶ Preview",
+    "synthesizing": "Synthesizing…",
+    "playing": "Playing…",
+    "scenes": "Storyboard ({count} scenes)",
+    "scenesHint": "Scenes play top to bottom: the dropdown switches the visual template → headline/subline change on-screen text → narration drives the voice-over for that segment",
+    "sceneHeadline": "Headline (on-screen, ≤30 chars)",
+    "sceneHeadlinePh": "e.g. Q3 Revenue",
+    "sceneSubline": "Subline (on-screen small text, optional)",
+    "sceneSublinePh": "e.g. Unit: RMB",
+    "sceneNarration": "Narration (read verbatim; 15–80 chars works best)",
+    "listenThis": "▶ Preview this",
+    "back": "Back to draft",
+    "confirm": "Confirm & Start Rendering"
+  },
+  "step4": {
+    "working": "Generating…",
+    "done": "Done",
+    "failed": "Failed",
+    "taskId": "Job {id}",
+    "rendering": "Rendering {pct}%",
+    "downloadVideo": "Download MP4",
+    "downloadProject": "Download project",
+    "redo": "Back to script for another"
+  },
+  "status": {
+    "queued": "Queued",
+    "ingesting": "Parsing CSV",
+    "scripting": "AI drafting script",
+    "tts": "Synthesizing voice",
+    "composing": "Assembling project",
+    "rendering": "Rendering video",
+    "verifying": "Verifying output",
+    "done": "Done",
+    "failed": "Failed"
+  },
+  "settings": {
+    "title": "Settings",
+    "close": "Close",
+    "tabTts": "Voice Engines (TTS)",
+    "tabLlm": "AI Script (LLM)",
+    "ttsHint": "Engine naming matches MoneyPrinterTurbo. Free engines need no config; cloud engines appear in the voice dropdown once their API key is set.",
+    "free": "Free",
+    "selfHosted": "Self-hosted",
+    "needsKey": "Key required",
+    "apiKey": "API Key",
+    "llmProviderOpenai": "OpenAI-compatible (GLM / DeepSeek / Kimi / OpenAI…)",
+    "llmProviderClaude": "Claude (Anthropic)",
+    "baseUrl": "Base URL",
+    "baseUrlClaudePh": "https://api.anthropic.com/v1",
+    "baseUrlOpenaiPh": "https://api.openai.com/v1",
+    "model": "Model (optional)",
+    "modelClaudePh": "claude-sonnet-4-5",
+    "modelOpenaiPh": "glm-5.3-flash / gpt-4o-mini …",
+    "saveAndTest": "Save & Test connection",
+    "testing": "Testing…",
+    "testOk": "Connected ({model}, {ms}ms)",
+    "save": "Save settings",
+    "saved": "Saved ✓"
+  },
+  "language": {
+    "label": "Language"
+  }
+}

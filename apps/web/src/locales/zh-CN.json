@@ -1,0 +1,105 @@
+{
+  "app": {
+    "title": "AI 数据解说短视频工厂",
+    "subtitle": "粘贴/上传 CSV → AI 起草脚本 → 确认文案与模板 → 无幻觉 1080p60 数据视频",
+    "settings": "⚙ 设置"
+  },
+  "steps": {
+    "s1": "① 粘贴/上传数据",
+    "s2": "② 生成设定",
+    "s3": "③ 确认脚本",
+    "s4": "④ 渲染出片"
+  },
+  "step1": {
+    "title": "提供你的 CSV 数据",
+    "paste": "📋 粘贴文本",
+    "upload": "📁 上传文件",
+    "dropHere": "拖拽 CSV 文件到此处，或",
+    "chooseFile": "选择文件",
+    "loadedRows": "已加载 {rows} 行数据（点击\"下一步\"自动校验格式）",
+    "next": "下一步：校验并生成设定",
+    "validating": "校验中…",
+    "valid": "格式合法：{rows} 行数据，{cols} 列（数字列：{numeric}）",
+    "warnNoNumeric": "未识别到数字列，图表类模板将无法展示数值",
+    "warnFewRows": "数据少于 2 行，建议至少 2 行"
+  },
+  "step2": {
+    "title": "视频设定",
+    "quality": "渲染档位",
+    "draft": "快速预览（draft）",
+    "standard": "正式成片（standard）",
+    "themeHint": "主题提示（可选）",
+    "themeHintPh": "如：半年经营回顾",
+    "back": "返回修改数据",
+    "draftBtn": "生成脚本草稿",
+    "drafting": "AI 起草中…（约 1 分钟）"
+  },
+  "step3": {
+    "title": "确认脚本与配音",
+    "allEditable": "所有文案均可编辑",
+    "videoTitle": "视频标题（显示在分享/文件名，不出现在画面）",
+    "themeStyle": "主题风格（点击卡片切换，预览该主题的真实渲染样例）",
+    "voice": "配音音色（免费引擎开箱即用；云引擎在 ⚙设置 里配置 API Key 后自动出现）",
+    "preview": "▶ 试听",
+    "synthesizing": "合成中…",
+    "playing": "播放中…",
+    "scenes": "分镜脚本（{count} 个场景）",
+    "scenesHint": "每行从上到下依次播放：下拉框换该镜头的画面模板 → 屏幕标题/副标题改画面文字 → 解说词决定这一段的配音，改动后都会重新配音合成",
+    "sceneHeadline": "屏幕标题（画面大字，≤30 字）",
+    "sceneHeadlinePh": "如：Q3 营收",
+    "sceneSubline": "副标题（画面小字，可留空）",
+    "sceneSublinePh": "如：单位：人民币",
+    "sceneNarration": "解说词（配音逐字朗读，15~80 字效果最佳）",
+    "listenThis": "▶ 试听本段",
+    "back": "返回重新起草",
+    "confirm": "确认无误，开始渲染"
+  },
+  "step4": {
+    "working": "正在生成…",
+    "done": "生成完成",
+    "failed": "生成失败",
+    "taskId": "任务 {id}",
+    "rendering": "渲染 {pct}%",
+    "downloadVideo": "下载视频 MP4",
+    "downloadProject": "下载工程包",
+    "redo": "返回改脚本再来一条"
+  },
+  "status": {
+    "queued": "排队中",
+    "ingesting": "解析 CSV",
+    "scripting": "AI 生成脚本",
+    "tts": "合成语音",
+    "composing": "装配工程",
+    "rendering": "渲染视频",
+    "verifying": "校验产物",
+    "done": "完成",
+    "failed": "失败"
+  },
+  "settings": {
+    "title": "设置",
+    "close": "关闭",
+    "tabTts": "配音引擎（TTS）",
+    "tabLlm": "AI 脚本（LLM）",
+    "ttsHint": "引擎命名与 MoneyPrinterTurbo 一致。免费引擎无需配置；云引擎填入 API Key 后，确认页音色下拉会自动出现该引擎音色。",
+    "free": "免费",
+    "selfHosted": "自托管",
+    "needsKey": "需 Key",
+    "apiKey": "API Key",
+    "llmProviderOpenai": "OpenAI 兼容（GLM / DeepSeek / Kimi / OpenAI…）",
+    "llmProviderClaude": "Claude（Anthropic）",
+    "baseUrl": "Base URL",
+    "baseUrlClaudePh": "https://api.anthropic.com/v1",
+    "baseUrlOpenaiPh": "https://api.openai.com/v1",
+    "model": "模型（可选）",
+    "modelClaudePh": "claude-sonnet-4-5",
+    "modelOpenaiPh": "glm-5.3-flash / gpt-4o-mini …",
+    "saveAndTest": "保存并测试连通",
+    "testing": "测试中…",
+    "testOk": "连通（{model}，{ms}ms）",
+    "save": "保存设置",
+    "saved": "已保存 ✓"
+  },
+  "language": {
+    "label": "语言"
+  }
+}
