@@ -76,6 +76,25 @@ pnpm --filter @data-news/pipeline demo:video examples/finance-half-year.csv   # 
 pnpm test        # 各包单测（schema/CSV 解析/JSON 容错/音频探测/模板契约）
 ```
 
+## 打包发行（Windows / macOS 便携程序）
+
+```bash
+node build/build.mjs --target=all   # 或 mac / win
+```
+
+产物在 `build/release/`：
+
+```
+macos-arm64/  windows-x64/
+  dataVideo-server(.exe)   单可执行（内嵌 Node 22）
+  resources/web            前端（服务自动托管，单端口）
+  resources/templates      模板 + 60 个主题样例视频 + gsap
+  START.md                 启动说明
+```
+
+用户机器只需 **FFmpeg**（加入 PATH）：运行可执行文件后打开 `http://localhost:8787` 即用。
+首次渲染自动下载 headless Chrome。下载地址见 GitHub Releases（附打包好的 zip）。
+
 ## 环境要求
 
 - Node 22+，FFmpeg（含 libmp3lame）
