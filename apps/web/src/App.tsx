@@ -27,6 +27,23 @@ interface JobState {
   script?: Script;
   downloads?: { video: string; project: string };
 }
+interface EngineInfo {
+  id: string;
+  label: string;
+  needsKey: boolean;
+  selfHosted: boolean;
+  free: boolean;
+  voices: string[];
+  fields: { key: string; label: string; placeholder?: string }[];
+}
+interface CsvValidation {
+  ok: boolean;
+  rowCount?: number;
+  columns?: { name: string; type: string; sample: string }[];
+  numericCols?: string[];
+  warnings?: string[];
+  error?: string;
+}
 
 const SAMPLE_CSV = `月份,营收(万元),同比增长,毛利率
 1月,1180,12%,41.2
@@ -36,7 +53,6 @@ const SAMPLE_CSV = `月份,营收(万元),同比增长,毛利率
 5月,1560,21%,43.6
 6月,1712,23%,44.2`;
 
-// 模板清单从后端 manifest 动态拉取（新增模板/官方块自动出现）；以下仅作为拉取前的兜底排序
 const TEMPLATE_ORDER = [
   "kpi-headline", "number-counter", "line-trend", "bar-race", "donut-share",
   "waterfall", "geo-map", "data-table-reveal", "compare-split", "quote-insight",
@@ -51,202 +67,211 @@ const THEMES = [
   { id: "ink-classic", label: "水墨鎏金", hint: "高端 / 奢品 / 文化" },
 ];
 
-const VOICES = [
-  { engine: "omnivoice", timbre: "女，青年，中音调", label: "知性女声（本地 AI）" },
-  { engine: "omnivoice", timbre: "男，青年，中音调", label: "沉稳男声（本地 AI）" },
-  { engine: "omnivoice", timbre: "女，中年，中音调", label: "权威女声（本地 AI）" },
-  { engine: "omnivoice", timbre: "男，青年，低音调", label: "低音男声（本地 AI）" },
-  { engine: "macos-say", voice: "zh-female-1", label: "系统女声 婷婷" },
-  { engine: "macos-say", voice: "zh-male-1", label: "系统男声" },
+/** 预置音色（voiceName 全名，与 MoneyPrinterTurbo 引擎命名一致） */
+const PRESET_VOICES = [
+  { voiceName: "azure-v1:zh-CN-XiaoxiaoNeural", label: "晓晓（Edge 免费）" },
+  { voiceName: "azure-v1:zh-CN-YunxiNeural", label: "云希（Edge 免费）" },
+  { voiceName: "say:zh-female-1", label: "macOS 婷婷" },
+  { voiceName: "omnivoice", label: "OmniVoice 知性女声（本地 AI）" },
+  { voiceName: "omnivoice", label: "OmniVoice 沉稳男声（本地 AI）", timbre: "男，青年，中音调" },
 ];
+function enginePresetVoices(engines: EngineInfo[]): { voiceName: string; label: string }[] {
+  const out: { voiceName: string; label: string }[] = [];
+  for (const e of engines) {
+    if (["azure-v1", "say", "omnivoice", "no-voice"].includes(e.id)) continue;
+    if (e.id === "siliconflow") for (const v of e.voices.slice(0, 3)) out.push({ voiceName: `siliconflow:${v}`, label: `SiliconFlow ${v.split(":").pop()}` });
+    else if (e.id === "gemini") for (const v of e.voices.slice(0, 3)) out.push({ voiceName: `gemini:${v}`, label: `Gemini ${v}` });
+    else if (e.id === "minimax") for (const v of e.voices.slice(0, 3)) out.push({ voiceName: `minimax:${v}`, label: `MiniMax ${v}` });
+    else if (e.id === "kokoro") for (const v of e.voices.slice(0, 3)) out.push({ voiceName: `kokoro:${v}`, label: `Kokoro ${v}` });
+    else if (e.id === "chatterbox") out.push({ voiceName: "chatterbox:default", label: "Chatterbox 默认" });
+  }
+  return out;
+}
 
 const STATUS_TEXT: Record<JobStatus, string> = {
-  queued: "排队中",
-  ingesting: "解析 CSV",
-  scripting: "AI 生成脚本",
-  tts: "合成语音",
-  composing: "装配工程",
-  rendering: "渲染视频",
-  verifying: "校验产物",
-  done: "完成",
-  failed: "失败",
+  queued: "排队中", ingesting: "解析 CSV", scripting: "AI 生成脚本", tts: "合成语音",
+  composing: "装配工程", rendering: "渲染视频", verifying: "校验产物", done: "完成", failed: "失败",
 };
 
 export default function App() {
   const [step, setStep] = useState<1 | 2 | 3 | 4>(1);
   const [csv, setCsv] = useState(SAMPLE_CSV);
+  const [csvMode, setCsvMode] = useState<"paste" | "upload">("paste");
+  const [validation, setValidation] = useState<CsvValidation | null>(null);
+  const [validating, setValidating] = useState(false);
   const [titleHint, setTitleHint] = useState("");
   const [quality, setQuality] = useState("draft");
 
-  // 确认页状态
   const [script, setScript] = useState<Script | null>(null);
   const [previewing, setPreviewing] = useState(false);
   const [previewError, setPreviewError] = useState("");
-  const [voiceIdx, setVoiceIdx] = useState(0);
+  const [voiceName, setVoiceName] = useState("azure-v1:zh-CN-XiaoxiaoNeural");
 
   const [job, setJob] = useState<JobState | null>(null);
   const esRef = useRef<EventSource | null>(null);
-  const [previewingVoice, setPreviewingVoice] = useState<"loading" | "playing" | `scene-${number}` | null>(null);
-  const audioRef = useRef<HTMLAudioElement | null>(null);
-  const [templates, setTemplates] = useState<{ id: string; name: string; hint: string; sceneHint: string }[]>([]);
+  const [templates, setTemplates] = useState<{ id: string; name: string; hint: string }[]>([]);
+  const [engines, setEngines] = useState<EngineInfo[]>([]);
+  const [settingsOpen, setSettingsOpen] = useState(false);
+  const [settingsTab, setSettingsTab] = useState<"tts" | "llm">("tts");
 
   useEffect(() => {
-    fetch("/api/templates")
-      .then((r) => r.json())
-      .then((list: { id: string; name: string; description: string; sceneHint: string }[]) => {
-        const mapped = list.map((t) => ({
-          id: t.id,
-          name: t.name,
-          hint: t.sceneHint || t.description,
-          sceneHint: t.sceneHint,
-        }));
-        // 自研 10 套按固定顺序排前，官方块按 manifest 顺序跟后
-        mapped.sort((a, b) => {
-          const ia = TEMPLATE_ORDER.indexOf(a.id);
-          const ib = TEMPLATE_ORDER.indexOf(b.id);
-          return (ia === -1 ? 99 : ia) - (ib === -1 ? 99 : ib);
-        });
-        setTemplates(mapped);
-      })
-      .catch(() => {});
-  }, []);
-
-  const playPreview = useCallback(async (text: string, voiceSel: typeof VOICES[number], key: "loading" | `scene-${number}`) => {
-    setPreviewingVoice(key);
-    try {
-      audioRef.current?.pause();
-      const r = await fetch("/api/tts/preview", {
-        method: "POST",
-        headers: { "content-type": "application/json" },
-        body: JSON.stringify({ text, engine: voiceSel.engine, timbre: voiceSel.timbre, voice: voiceSel.voice }),
+    fetch("/api/templates").then((r) => r.json()).then((list: { id: string; name: string; description: string; sceneHint: string }[]) => {
+      const mapped = list.map((t) => ({ id: t.id, name: t.name, hint: t.sceneHint || t.description }));
+      mapped.sort((a, b) => {
+        const ia = TEMPLATE_ORDER.indexOf(a.id); const ib = TEMPLATE_ORDER.indexOf(b.id);
+        return (ia === -1 ? 99 : ia) - (ib === -1 ? 99 : ib);
       });
-      if (!r.ok) throw new Error((await r.json().catch(() => ({}))).error ?? "试听失败");
-      const blob = await r.blob();
-      const audio = new Audio(URL.createObjectURL(blob));
-      audioRef.current = audio;
-      audio.onended = () => setPreviewingVoice(null);
-      await audio.play();
-      setPreviewingVoice("playing");
-    } catch (e) {
-      alert((e as Error).message);
-      setPreviewingVoice(null);
-    }
+      setTemplates(mapped);
+    }).catch(() => {});
+    fetch("/api/tts/engines").then((r) => r.json()).then(setEngines).catch(() => {});
   }, []);
 
-  const previewVoice = useCallback(() => {
-    void playPreview("大家好，这是配音音色试听效果，数据不会说谎。", VOICES[voiceIdx], "loading");
-  }, [playPreview, voiceIdx]);
+  const validateCsv = useCallback(async () => {
+    setValidating(true);
+    try {
+      const r = await fetch("/api/csv/validate", {
+        method: "POST", headers: { "content-type": "application/json" },
+        body: JSON.stringify({ csv }),
+      });
+      const d = (await r.json()) as CsvValidation;
+      setValidation(d);
+      return d.ok === true;
+    } finally { setValidating(false); }
+  }, [csv]);
 
-  const previewSceneVoice = useCallback((i: number) => {
-    const s = script?.scenes[i];
-    if (s?.narration) void playPreview(s.narration, VOICES[voiceIdx], `scene-${i}`);
-  }, [script, voiceIdx, playPreview]);
+  const goStep2 = useCallback(async () => {
+    if (await validateCsv()) setStep(2);
+  }, [validateCsv]);
 
-  const rows = csv.trim() ? csv.trim().split("\n").length - 1 : 0;
+  const onFileChosen = useCallback(async (file: File) => {
+    setCsv(await file.text());
+    setCsvMode("upload");
+    setValidation(null);
+  }, []);
 
-  // Step2 → Step3：请求 LLM 草稿
   const generateDraft = useCallback(async () => {
-    setPreviewing(true);
-    setPreviewError("");
+    setPreviewing(true); setPreviewError("");
     try {
       const r = await fetch("/api/script/preview", {
-        method: "POST",
-        headers: { "content-type": "application/json" },
+        method: "POST", headers: { "content-type": "application/json" },
         body: JSON.stringify({ csv, titleHint: titleHint || undefined, theme: "dark-finance" }),
       });
       const d = await r.json();
       if (!r.ok) throw new Error(d.error ?? `HTTP ${r.status}`);
-      setScript(d);
-      setStep(3);
-    } catch (e) {
-      setPreviewError((e as Error).message);
-    } finally {
-      setPreviewing(false);
-    }
+      setScript(d); setStep(3);
+    } catch (e) { setPreviewError((e as Error).message); } finally { setPreviewing(false); }
   }, [csv, titleHint]);
 
   const patchScene = (i: number, patch: Partial<Scene>) => {
-    setScript((s) => {
-      if (!s) return s;
-      const scenes = s.scenes.map((sc, j) => (j === i ? { ...sc, ...patch } : sc));
-      return { ...s, scenes };
-    });
+    setScript((s) => s ? { ...s, scenes: s.scenes.map((sc, j) => (j === i ? { ...sc, ...patch } : sc)) } : s);
   };
 
-  // Step3 → Step4：用户确认后才创建任务
   const startJob = useCallback(async () => {
     if (!script) return;
-    const voice = VOICES[voiceIdx];
     const r = await fetch("/api/jobs", {
-      method: "POST",
-      headers: { "content-type": "application/json" },
+      method: "POST", headers: { "content-type": "application/json" },
       body: JSON.stringify({
-        csv, // 渲染仍需源数据（溯源/校验）
-        quality,
-        voiceConfig: { engine: voice.engine, voice: voice.voice ?? "zh-female-1", timbre: voice.timbre },
+        csv, quality, voiceName,
         scriptOverride: {
-          title: script.title,
-          theme: script.theme,
-          scenes: script.scenes.map((s) => ({
-            template: s.template,
-            headline: s.headline,
-            subline: s.subline,
-            narration: s.narration,
-            data: s.data,
-          })),
+          title: script.title, theme: script.theme,
+          scenes: script.scenes.map((s) => ({ template: s.template, headline: s.headline, subline: s.subline, narration: s.narration, data: s.data })),
         },
       }),
     });
-    if (!r.ok) {
-      const d = await r.json().catch(() => ({}));
-      alert(`创建失败: ${d.error ?? r.status}`);
-      return;
-    }
+    if (!r.ok) { const d = await r.json().catch(() => ({})); alert(`创建失败: ${d.error ?? r.status}`); return; }
     const { jobId } = await r.json();
-    setJob({ jobId, status: "queued", progress: 0, message: "排队中" });
-    setStep(4);
+    setJob({ jobId, status: "queued", progress: 0, message: "排队中" }); setStep(4);
     const es = new EventSource(`/api/jobs/${jobId}/events`);
     esRef.current = es;
     es.onmessage = (ev) => {
-      const e = JSON.parse(ev.data) as JobState;
-      setJob(e);
-      if (e.status === "done" || e.status === "failed") {
-        es.close();
-        fetch(`/api/jobs/${jobId}`).then((x) => x.json()).then(setJob).catch(() => {});
-      }
+      const e = JSON.parse(ev.data) as JobState; setJob(e);
+      if (e.status === "done" || e.status === "failed") { es.close(); fetch(`/api/jobs/${jobId}`).then((x) => x.json()).then(setJob).catch(() => {}); }
     };
-    es.onerror = () => {
-      es.close();
-      fetch(`/api/jobs/${jobId}`).then((x) => x.json()).then(setJob).catch(() => {});
-    };
-  }, [script, csv, quality, voiceIdx]);
+    es.onerror = () => { es.close(); fetch(`/api/jobs/${jobId}`).then((x) => x.json()).then(setJob).catch(() => {}); };
+  }, [script, csv, quality, voiceName]);
 
   useEffect(() => () => esRef.current?.close(), []);
 
+  const [previewingVoice, setPreviewingVoice] = useState<"loading" | "playing" | `scene-${number}` | null>(null);
+  const audioRef = useRef<HTMLAudioElement | null>(null);
+  const playPreview = useCallback(async (text: string, vn: string, key: "loading" | `scene-${number}`) => {
+    setPreviewingVoice(key);
+    try {
+      audioRef.current?.pause();
+      const r = await fetch("/api/tts/preview", {
+        method: "POST", headers: { "content-type": "application/json" },
+        body: JSON.stringify({ text, voiceName: vn }),
+      });
+      if (!r.ok) throw new Error((await r.json().catch(() => ({}))).error ?? "试听失败");
+      const audio = new Audio(URL.createObjectURL(await r.blob()));
+      audioRef.current = audio;
+      audio.onended = () => setPreviewingVoice(null);
+      await audio.play(); setPreviewingVoice("playing");
+    } catch (e) { alert((e as Error).message); setPreviewingVoice(null); }
+  }, []);
+  const previewSceneVoice = (i: number) => {
+    const s = script?.scenes[i]; if (s?.narration) void playPreview(s.narration, voiceName, `scene-${i}`);
+  };
+
+  const rows = csv.trim() ? csv.trim().split("\n").length - 1 : 0;
   const rendering = job && !["done", "failed"].includes(job.status);
   const renderPct = job?.renderPercent ?? 0;
+  const allVoices = [...PRESET_VOICES, ...enginePresetVoices(engines)];
 
   return (
     <div className="container">
-      <h1>AI 数据解说短视频工厂</h1>
-      <p className="subtitle">粘贴 CSV → AI 起草脚本 → 你确认文案与模板 → 无幻觉 1080p60 数据视频</p>
+      <div className="topbar">
+        <div>
+          <h1>AI 数据解说短视频工厂</h1>
+          <p className="subtitle">粘贴/上传 CSV → AI 起草脚本 → 确认文案与模板 → 无幻觉 1080p60 数据视频</p>
+        </div>
+        <button className="ghost" onClick={() => setSettingsOpen(true)}>⚙ 设置</button>
+      </div>
+
+      {settingsOpen && (
+        <SettingsModal engines={engines} tab={settingsTab} setTab={setSettingsTab} onClose={() => setSettingsOpen(false)} />
+      )}
 
       <div className="steps">
         {([1, 2, 3, 4] as const).map((s) => (
           <div key={s} className={`step-chip ${step === s ? "active" : step > s ? "done" : ""}`}>
-            {s === 1 ? "① 粘贴数据" : s === 2 ? "② 生成设定" : s === 3 ? "③ 确认脚本" : "④ 渲染出片"}
+            {s === 1 ? "① 粘贴/上传数据" : s === 2 ? "② 生成设定" : s === 3 ? "③ 确认脚本" : "④ 渲染出片"}
           </div>
         ))}
       </div>
 
       {step === 1 && (
         <div className="card">
-          <h2>粘贴你的 CSV 数据</h2>
-          <textarea value={csv} onChange={(e) => setCsv(e.target.value)} spellCheck={false} />
-          <p className="hint">识别到 {rows} 行数据。首行为表头；至少一列数字。</p>
+          <h2>提供你的 CSV 数据</h2>
+          <div className="row" style={{ marginBottom: 12 }}>
+            <label className={`mode-tab ${csvMode === "paste" ? "on" : ""}`} onClick={() => setCsvMode("paste")}>📋 粘贴文本</label>
+            <label className={`mode-tab ${csvMode === "upload" ? "on" : ""}`} onClick={() => setCsvMode("upload")}>📁 上传文件</label>
+          </div>
+          {csvMode === "paste" ? (
+            <textarea value={csv} onChange={(e) => { setCsv(e.target.value); setValidation(null); }} spellCheck={false} />
+          ) : (
+            <div className="upload-zone"
+              onDragOver={(e) => e.preventDefault()}
+              onDrop={(e) => { e.preventDefault(); const f = e.dataTransfer.files[0]; if (f) void onFileChosen(f); }}>
+              <input id="csv-file" type="file" accept=".csv,.txt,text/csv" style={{ display: "none" }}
+                onChange={(e) => { const f = e.target.files?.[0]; if (f) void onFileChosen(f); }} />
+              <p style={{ fontSize: 16, marginBottom: 8 }}>拖拽 CSV 文件到此处，或</p>
+              <button className="ghost" onClick={() => document.getElementById("csv-file")?.click()}>选择文件</button>
+              {csv && <p className="hint" style={{ marginTop: 12 }}>已加载 {csv.split("\n").length - 1} 行数据（点击"下一步"自动校验格式）</p>}
+            </div>
+          )}
+          {validation && (
+            <div className={validation.ok ? "valid-box" : "error-box"}>
+              {validation.ok ? (
+                <>✅ 格式合法：{validation.rowCount} 行数据，{validation.columns?.length} 列（数字列：{validation.numericCols?.join(", ") || "无"}）
+                  {validation.warnings?.map((w, i) => <div key={i} style={{ color: "#fbbf24" }}>⚠ {w}</div>)}
+                </>
+              ) : <>❌ {validation.error}</>}
+            </div>
+          )}
           <div className="row" style={{ marginTop: 16 }}>
-            <button className="primary" disabled={rows < 2} onClick={() => setStep(2)}>
-              下一步：生成设定
+            <button className="primary" disabled={rows < 2 || validating} onClick={goStep2}>
+              {validating ? "校验中…" : "下一步：校验并生成设定"}
             </button>
           </div>
         </div>
@@ -258,23 +283,12 @@ export default function App() {
             <h2>视频设定</h2>
             <div className="row" style={{ marginBottom: 12 }}>
               <span className="subtitle" style={{ margin: 0 }}>渲染档位</span>
-              <label className="radio">
-                <input type="radio" checked={quality === "draft"} onChange={() => setQuality("draft")} />
-                快速预览（draft）
-              </label>
-              <label className="radio">
-                <input type="radio" checked={quality === "standard"} onChange={() => setQuality("standard")} />
-                正式成片（standard）
-              </label>
+              <label className="radio"><input type="radio" checked={quality === "draft"} onChange={() => setQuality("draft")} />快速预览（draft）</label>
+              <label className="radio"><input type="radio" checked={quality === "standard"} onChange={() => setQuality("standard")} />正式成片（standard）</label>
             </div>
             <div className="row">
               <span className="subtitle" style={{ margin: 0 }}>主题提示（可选）</span>
-              <input
-                className="text-input"
-                value={titleHint}
-                onChange={(e) => setTitleHint(e.target.value)}
-                placeholder="如：半年经营回顾"
-              />
+              <input className="text-input" value={titleHint} onChange={(e) => setTitleHint(e.target.value)} placeholder="如：半年经营回顾" />
             </div>
           </div>
           <div className="row">
@@ -297,28 +311,17 @@ export default function App() {
 
             <div className="edit-block">
               <label className="edit-label">视频标题（显示在分享/文件名，不出现在画面）</label>
-              <input
-                className="text-input"
-                value={script.title}
-                onChange={(e) => setScript({ ...script, title: e.target.value })}
-              />
+              <input className="text-input" value={script.title} onChange={(e) => setScript({ ...script, title: e.target.value })} />
             </div>
 
             <div className="edit-block">
-              <label className="edit-label">主题风格（点击卡片切换，右侧预览该主题的真实渲染样例）</label>
+              <label className="edit-label">主题风格（点击卡片切换，预览该主题的真实渲染样例）</label>
               <div className="theme-grid">
                 {THEMES.map((t) => (
-                  <button
-                    key={t.id}
-                    className={`theme-card ${script.theme === t.id ? "selected" : ""}`}
-                    onClick={() => setScript({ ...script, theme: t.id })}
-                    title={t.hint}
-                  >
-                    <video
-                      src={`/api/samples/${script.scenes[0]?.template ?? "kpi-headline"}/${t.id}`}
-                      autoPlay muted loop playsInline
-                      onError={(e) => ((e.target as HTMLVideoElement).style.display = "none")}
-                    />
+                  <button key={t.id} className={`theme-card ${script.theme === t.id ? "selected" : ""}`}
+                    onClick={() => setScript({ ...script, theme: t.id })} title={t.hint}>
+                    <video src={`/api/samples/${script.scenes[0]?.template ?? "kpi-headline"}__${t.id}`} autoPlay muted loop playsInline
+                      onError={(e) => ((e.target as HTMLVideoElement).style.display = "none")} />
                     <span className="theme-name">{t.label}</span>
                     <span className="theme-hint">{t.hint}</span>
                   </button>
@@ -327,18 +330,13 @@ export default function App() {
             </div>
 
             <div className="edit-block">
-              <label className="edit-label">配音音色（试听后再定；本地 AI 音色更自然）</label>
+              <label className="edit-label">配音音色（免费引擎开箱即用；云引擎在 ⚙设置 里配置 API Key 后自动出现）</label>
               <div className="row">
-                <select
-                  className="text-input voice-select"
-                  value={voiceIdx}
-                  onChange={(e) => setVoiceIdx(Number(e.target.value))}
-                >
-                  {VOICES.map((v, i) => (
-                    <option key={i} value={i}>{v.label}</option>
-                  ))}
+                <select className="text-input voice-select" value={voiceName} onChange={(e) => setVoiceName(e.target.value)}>
+                  {allVoices.map((v, i) => <option key={i} value={v.voiceName}>{v.label}</option>)}
                 </select>
-                <button className="ghost" disabled={previewingVoice === "loading"} onClick={previewVoice}>
+                <button className="ghost" disabled={previewingVoice !== null}
+                  onClick={() => playPreview("大家好，这是配音音色试听效果，数据不会说谎。", voiceName, "loading")}>
                   {previewingVoice === "loading" ? "合成中…" : previewingVoice === "playing" ? "播放中…" : "▶ 试听"}
                 </button>
               </div>
@@ -353,62 +351,34 @@ export default function App() {
                 <div className="scene-editor" key={i}>
                   <div className="scene-head">
                     <span className="scene-num">#{i + 1}</span>
-                    <select
-                      className="tpl-select"
-                      value={s.template}
+                    <select className="tpl-select" value={s.template}
                       title={`换模板：${templates.find((t) => t.id === s.template)?.hint ?? ""}`}
-                      onChange={(e) => patchScene(i, { template: e.target.value })}
-                    >
-                      {templates.map((t) => (
-                        <option key={t.id} value={t.id}>{t.name} · {t.hint}</option>
-                      ))}
+                      onChange={(e) => patchScene(i, { template: e.target.value })}>
+                      {templates.map((t) => <option key={t.id} value={t.id}>{t.name} · {t.hint}</option>)}
                     </select>
                     <div className="tpl-preview">
-                      <video
-                        src={`/api/samples/${s.template}/${script.theme}`}
-                        autoPlay muted loop playsInline
-                        onError={(e) => ((e.target as HTMLVideoElement).style.display = "none")}
-                      />
+                      <video src={`/api/samples/${s.template}__${script.theme}`} autoPlay muted loop playsInline
+                        onError={(e) => ((e.target as HTMLVideoElement).style.display = "none")} />
                     </div>
                   </div>
                   <div className="field-row">
                     <div className="field">
                       <label className="edit-label">屏幕标题（画面大字，≤30 字）</label>
-                      <input
-                        className="text-input"
-                        value={s.headline}
-                        onChange={(e) => patchScene(i, { headline: e.target.value })}
-                        placeholder="如：Q3 营收"
-                      />
+                      <input className="text-input" value={s.headline} onChange={(e) => patchScene(i, { headline: e.target.value })} placeholder="如：Q3 营收" />
                     </div>
                     <div className="field">
                       <label className="edit-label">副标题（画面小字，可留空）</label>
-                      <input
-                        className="text-input"
-                        value={s.subline}
-                        onChange={(e) => patchScene(i, { subline: e.target.value })}
-                        placeholder="如：单位：人民币"
-                      />
+                      <input className="text-input" value={s.subline} onChange={(e) => patchScene(i, { subline: e.target.value })} placeholder="如：单位：人民币" />
                     </div>
                   </div>
                   <div className="field">
                     <label className="edit-label">
                       解说词（配音逐字朗读，15~80 字效果最佳）
-                      <button
-                        className="link-btn"
-                        onClick={() => previewSceneVoice(i)}
-                        disabled={previewingVoice === `scene-${i}`}
-                      >
+                      <button className="link-btn" onClick={() => previewSceneVoice(i)} disabled={previewingVoice === `scene-${i}`}>
                         {previewingVoice === `scene-${i}` ? "合成中…" : "▶ 试听本段"}
                       </button>
                     </label>
-                    <textarea
-                      className="narration-input"
-                      value={s.narration}
-                      onChange={(e) => patchScene(i, { narration: e.target.value })}
-                      placeholder="解说词（将逐字配音）"
-                      rows={2}
-                    />
+                    <textarea className="narration-input" value={s.narration} onChange={(e) => patchScene(i, { narration: e.target.value })} rows={2} />
                   </div>
                 </div>
               ))}
@@ -428,39 +398,152 @@ export default function App() {
             <span style={{ float: "right", color: "var(--muted)", fontSize: 14 }}>任务 {job.jobId}</span>
           </h2>
           <div className="progress-bar">
-            <div
-              className="progress-fill"
-              style={{
-                width: `${job.status === "done" ? 100 : job.status === "failed" ? 100 : Math.max(job.progress, renderPct > 0 ? 50 + renderPct * 0.4 : job.progress)}%`,
-                background: job.status === "failed" ? "var(--accent2)" : "var(--accent)",
-              }}
-            />
+            <div className="progress-fill" style={{
+              width: `${job.status === "done" ? 100 : job.status === "failed" ? 100 : Math.max(job.progress, renderPct > 0 ? 50 + renderPct * 0.4 : job.progress)}%`,
+              background: job.status === "failed" ? "var(--accent2)" : "var(--accent)",
+            }} />
           </div>
           <div className="status-line">
             <span>{STATUS_TEXT[job.status]} {job.message ? `· ${job.message}` : ""}</span>
             <span>{rendering && renderPct > 0 ? `渲染 ${renderPct}%` : `${job.progress}%`}</span>
           </div>
-
           {job.status === "failed" && <div className="error-box">{job.error}</div>}
-
           {job.status === "done" && job.downloads && (
             <>
               <video className="result" src={`/api/jobs/${job.jobId}/download/video`} controls />
               <div className="dl-row">
-                <a href={`/api/jobs/${job.jobId}/download/video`} download>
-                  <button className="primary">下载视频 MP4</button>
-                </a>
-                <a href={`/api/jobs/${job.jobId}/download/project`} download>
-                  <button className="ghost">下载工程包（可手工微调重渲）</button>
-                </a>
-                <button className="ghost" onClick={() => { setJob(null); setStep(3); }}>
-                  返回改脚本再来一条
-                </button>
+                <a href={`/api/jobs/${job.jobId}/download/video`} download><button className="primary">下载视频 MP4</button></a>
+                <a href={`/api/jobs/${job.jobId}/download/project`} download><button className="ghost">下载工程包</button></a>
+                <button className="ghost" onClick={() => { setJob(null); setStep(3); }}>返回改脚本再来一条</button>
               </div>
             </>
           )}
         </div>
       )}
+    </div>
+  );
+}
+
+// ---------------- 设置弹窗（TTS / LLM）----------------
+function SettingsModal({ engines, tab, setTab, onClose }: {
+  engines: EngineInfo[];
+  tab: "tts" | "llm";
+  setTab: (t: "tts" | "llm") => void;
+  onClose: () => void;
+}) {
+  const [settings, setSettings] = useState<{
+    llm: { provider: string; apiKey?: string; baseUrl?: string; model?: string };
+    tts: Record<string, Record<string, unknown>>;
+  } | null>(null);
+  const [saved, setSaved] = useState(false);
+  const [testing, setTesting] = useState(false);
+  const [testResult, setTestResult] = useState<string>("");
+
+  useEffect(() => {
+    fetch("/api/settings").then((r) => r.json()).then(setSettings).catch(() => {});
+  }, []);
+
+  const save = async () => {
+    if (!settings) return;
+    await fetch("/api/settings", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(settings) });
+    setSaved(true); setTimeout(() => setSaved(false), 1500);
+  };
+
+  const testLlm = async () => {
+    if (!settings) return;
+    setTesting(true); setTestResult("");
+    try {
+      const r = await fetch("/api/llm/test", {
+        method: "POST", headers: { "content-type": "application/json" },
+        body: JSON.stringify({ ...settings.llm, save: true }),
+      });
+      const d = await r.json();
+      setTestResult(d.ok ? `✅ 连通（${d.model}，${d.elapsedMs}ms）` : `❌ ${d.error}`);
+    } catch (e) { setTestResult(`❌ ${(e as Error).message}`); } finally { setTesting(false); }
+  };
+
+  if (!settings) return <div className="modal-mask"><div className="modal">加载中…</div></div>;
+
+  const llm = settings.llm;
+
+  return (
+    <div className="modal-mask" onClick={onClose}>
+      <div className="modal" onClick={(e) => e.stopPropagation()}>
+        <div className="modal-head">
+          <h2>设置</h2>
+          <button className="ghost" onClick={onClose}>关闭</button>
+        </div>
+        <div className="tabs">
+          <button className={`tab ${tab === "tts" ? "on" : ""}`} onClick={() => setTab("tts")}>配音引擎（TTS）</button>
+          <button className={`tab ${tab === "llm" ? "on" : ""}`} onClick={() => setTab("llm")}>AI 脚本（LLM）</button>
+        </div>
+
+        {tab === "tts" && (
+          <div className="engines-list">
+            <p className="hint" style={{ marginBottom: 12 }}>
+              引擎命名与 MoneyPrinterTurbo 一致。免费引擎无需配置；云引擎填入 API Key 后，确认页音色下拉会自动出现该引擎音色。
+            </p>
+            {engines.map((e) => {
+              const cfg = settings.tts[e.id] ?? {};
+              const setCfg = (patch: Record<string, unknown>) =>
+                setSettings({ ...settings, tts: { ...settings.tts, [e.id]: { ...cfg, ...patch } } });
+              return (
+                <div className="engine-card" key={e.id}>
+                  <div className="engine-head">
+                    <b>{e.label}</b>
+                    <span className="engine-tag">{e.free ? "免费" : e.selfHosted ? "自托管" : "需 Key"}</span>
+                  </div>
+                  {(e.needsKey || e.fields.length > 0) && (
+                    <div className="engine-fields">
+                      {e.needsKey && (
+                        <input className="text-input" type="password" placeholder="API Key"
+                          value={String(cfg.apiKey ?? "")} onChange={(ev) => setCfg({ apiKey: ev.target.value })} />
+                      )}
+                      {e.fields.map((f) => (
+                        <input key={f.key} className="text-input" placeholder={`${f.label}${f.placeholder ? `：${f.placeholder}` : ""}`}
+                          value={String(cfg[f.key] ?? "")} onChange={(ev) => setCfg({ [f.key]: ev.target.value })} />
+                      ))}
+                    </div>
+                  )}
+                </div>
+              );
+            })}
+          </div>
+        )}
+
+        {tab === "llm" && (
+          <div className="llm-form">
+            <div className="row" style={{ marginBottom: 12 }}>
+              <label className="radio">
+                <input type="radio" checked={llm.provider === "openai"} onChange={() => setSettings({ ...settings, llm: { ...llm, provider: "openai" } })} />
+                OpenAI 兼容（GLM / DeepSeek / Kimi / OpenAI…）
+              </label>
+              <label className="radio">
+                <input type="radio" checked={llm.provider === "claude"} onChange={() => setSettings({ ...settings, llm: { ...llm, provider: "claude" } })} />
+                Claude（Anthropic）
+              </label>
+            </div>
+            <label className="edit-label">API Key</label>
+            <input className="text-input" type="password" placeholder="sk-…"
+              value={String(llm.apiKey ?? "")} onChange={(e) => setSettings({ ...settings, llm: { ...llm, apiKey: e.target.value } })} />
+            <label className="edit-label">Base URL{llm.provider === "claude" ? "（默认 https://api.anthropic.com/v1）" : "（可选，如中转/兼容端点）"}</label>
+            <input className="text-input" placeholder={llm.provider === "claude" ? "https://api.anthropic.com/v1" : "https://api.openai.com/v1"}
+              value={String(llm.baseUrl ?? "")} onChange={(e) => setSettings({ ...settings, llm: { ...llm, baseUrl: e.target.value } })} />
+            <label className="edit-label">模型（可选）</label>
+            <input className="text-input" placeholder={llm.provider === "claude" ? "claude-sonnet-4-5" : "glm-5.3-flash / gpt-4o-mini …"}
+              value={String(llm.model ?? "")} onChange={(e) => setSettings({ ...settings, llm: { ...llm, model: e.target.value } })} />
+            <div className="row" style={{ marginTop: 12 }}>
+              <button className="ghost" disabled={testing} onClick={testLlm}>{testing ? "测试中…" : "保存并测试连通"}</button>
+              {testResult && <span className={testResult.startsWith("✅") ? "ok-text" : "err-text"}>{testResult}</span>}
+            </div>
+          </div>
+        )}
+
+        <div className="modal-foot">
+          {saved && <span className="ok-text">已保存 ✓</span>}
+          <button className="primary" onClick={save}>保存设置</button>
+        </div>
+      </div>
     </div>
   );
 }

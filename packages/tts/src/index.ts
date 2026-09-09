@@ -5,6 +5,32 @@ import path from "node:path";
 import os from "node:os";
 import type { Voice, VoiceConfig } from "@data-news/shared";
 import { OmnivoiceProvider } from "./omnivoice.js";
+import { ENGINES, parseVoiceName, registerEngine, type EngineDef } from "./engines.js";
+
+// 注册本地引擎到统一目录
+registerEngine("say", {
+  id: "say",
+  label: "macOS say",
+  needsKey: false,
+  free: true,
+  voices: ["zh-female-1", "zh-male-1", "en-female-1", "en-male-1"],
+  synth: async ({ text, outFile }) => {
+    const provider = new MacosSayProvider();
+    await provider.synthesize(text, "zh-female-1", outFile);
+  },
+} as EngineDef);
+registerEngine("omnivoice", {
+  id: "omnivoice",
+  label: "OmniVoice（本地 AI·可选音色）",
+  needsKey: false,
+  free: true,
+  selfHosted: true,
+  voices: ["女，青年，中音调", "男，青年，中音调", "女，中年，中音调", "男，青年，低音调"],
+  synth: async ({ text, outFile }) => {
+    const provider = new OmnivoiceProvider();
+    await provider.synthesize(text, "zh-female-1", outFile);
+  },
+} as EngineDef);
 
 const run = promisify(execFile);
 
@@ -159,6 +185,50 @@ export async function synthesizeVoiceoverCfg(
 ): Promise<TtsResult> {
   const vc = cfg ?? { voice: "zh-female-1" as Voice, engine: "auto" as EnginePref };
   return synthesizeVoiceover(text, vc.voice, outFile, vc.engine, vc.timbre);
+}
+
+/** 新一代多引擎入口：按 voiceName 前缀分发（与 MoneyPrinterTurbo 命名一致）。
+ *  omnivoice 可通过 options.timbre 指定音色词表。 */
+export async function synthesizeByVoiceName(
+  text: string,
+  voiceName: string,
+  outFile: string,
+  options: { rate?: number; timbre?: string; sayVoice?: Voice } = {}
+): Promise<TtsResult> {
+  const { engine, voice } = parseVoiceName(voiceName);
+  await mkdir(path.dirname(outFile), { recursive: true });
+
+  if (engine === "omnivoice") {
+    const provider = new OmnivoiceProvider(options.timbre);
+    await provider.synthesize(text, "zh-female-1", outFile);
+  } else if (engine === "say") {
+    const provider = new MacosSayProvider();
+    await provider.synthesize(text, (options.sayVoice ?? "zh-female-1") as Voice, outFile);
+  } else {
+    const def = ENGINES[engine];
+    if (!def) throw new Error(`未知 TTS 引擎: ${engine}（可用: ${Object.keys(ENGINES).join(", ")}）`);
+    if (def.available && !(await def.available())) {
+      throw new Error(`引擎 ${engine} 当前不可用（检查依赖安装/服务是否启动）`);
+    }
+    await def.synth({ text, voiceName: voice, outFile, rate: options.rate });
+  }
+  const durationSec = await probeDurationSec(outFile);
+  return { file: outFile, durationSec, provider: engine };
+}
+
+/** 引擎清单（设置页渲染用） */
+export function engineCatalog() {
+  return Object.entries(ENGINES)
+    .filter(([id]) => id !== "omnivoice" && id !== "say")
+    .map(([id, def]) => ({
+      id,
+      label: def.label,
+      needsKey: def.needsKey,
+      selfHosted: !!def.selfHosted,
+      free: !!def.free,
+      voices: def.voices,
+      fields: def.fields ?? [],
+    }));
 }
 
 /** 冒烟：生成临时语音并删除 */

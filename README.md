@@ -76,6 +76,31 @@ pnpm --filter @data-news/pipeline demo:video examples/finance-half-year.csv   # 
 pnpm test        # 各包单测（schema/CSV 解析/JSON 容错/音频探测/模板契约）
 ```
 
+## 配音引擎与 AI 配置
+
+应用内置 **⚙ 设置** 面板（本地软件模式，服务启动后自动打开浏览器）：
+
+**配音引擎（TTS）** — 命名与 [MoneyPrinterTurbo](https://github.com/harry0703/MoneyPrinterTurbo) 一致：
+
+| 引擎 | 费用 | 说明 |
+|---|---|---|
+| azure-v1 (Edge TTS) | ✅ 免费 | 默认，无需 Key（`pip install edge-tts`） |
+| omnivoice | ✅ 免费 | 本地神经网络语音（需 ~/omnivoice-env） |
+| say | ✅ 免费 | macOS 内置 |
+| azure-v2 | 需 Key | Azure Speech（key + region） |
+| siliconflow | 需 Key | CosyVoice2 云 API |
+| gemini | 有免费层 | Gemini TTS |
+| mimo | 需 Key | 小米 MiMo（OpenAI 兼容 chat audio） |
+| minimax | 需 Key | 站点可选 global/cn |
+| elevenlabs | 有免费层 | multilingual_v2 |
+| chatterbox / kokoro | ✅ 自托管 | OpenAI 兼容 /audio/speech |
+| fish_audio | 需 Key | 支持 reference_id 音色克隆 |
+| no-voice | — | 静音音轨 |
+
+配置持久化在 `data/settings.json`（API Key 脱敏显示）。
+
+**AI 脚本（LLM）** — 支持 **OpenAI 兼容**（GLM / DeepSeek / Kimi / OpenAI，可自定义 Base URL）与 **Claude（Anthropic）**，一键"保存并测试连通"。
+
 ## 打包发行（Windows / macOS 便携程序）
 
 ```bash

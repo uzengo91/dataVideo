@@ -1,5 +1,5 @@
 {
-  "name": "@data-news/tts",
+  "name": "@data-news/settings",
   "version": "0.1.0",
   "type": "module",
   "main": "./src/index.ts",
@@ -12,8 +12,7 @@
     "test": "vitest run"
   },
   "dependencies": {
-    "@data-news/shared": "workspace:*",
-    "@data-news/settings": "workspace:*"
+    "@data-news/shared": "workspace:*"
   },
   "devDependencies": {
     "typescript": "^5.7.3",

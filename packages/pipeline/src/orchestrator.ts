@@ -4,7 +4,7 @@ import { tmpdir } from "node:os";
 import { fileURLToPath } from "node:url";
 import type { CreateJobRequest, VideoScript, JobEvent } from "@data-news/shared";
 import { ArkClient } from "@data-news/llm";
-import { synthesizeVoiceoverCfg, probeDurationSec } from "@data-news/tts";
+import { synthesizeVoiceoverCfg, synthesizeByVoiceName, probeDurationSec } from "@data-news/tts";
 import { ingestCsv } from "./ingest.js";
 import { planScript } from "./script-planner.js";
 import { composeWorkspace } from "./composer.js";
@@ -116,11 +116,13 @@ export async function runPipeline(
   }
   await writeFile(path.join(jobDir, "script.json"), JSON.stringify(script, null, 2), "utf8");
 
-  // 3. tts：全部解说词串联成一条音轨（引擎/音色由 voiceConfig 决定，默认自动选最优）
+  // 3. tts：全部解说词串联成一条音轨。优先级：voiceName（多引擎）> voiceConfig > 自动
   emit("tts", 30, "合成语音");
   const narration = script.scenes.map((s) => s.narration).join("。");
   const voTmp = path.join(jobDir, "vo-raw.mp3");
-  const vo = await synthesizeVoiceoverCfg(narration, req.voiceConfig, voTmp);
+  const vo = req.voiceName
+    ? await synthesizeByVoiceName(narration, req.voiceName, voTmp, { timbre: req.voiceConfig?.timbre })
+    : await synthesizeVoiceoverCfg(narration, req.voiceConfig, voTmp);
 
   // 场景时长 = VO 占比 + 缓冲，clamp 到模板区间
   const durations = await clampToTemplate(sceneDurations(script, vo.durationSec), script);

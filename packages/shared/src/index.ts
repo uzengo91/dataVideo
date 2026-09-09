@@ -130,6 +130,8 @@ export const CreateJobRequestSchema = z.object({
   quality: QualitySchema.optional(),
   /** 完整音色配置（优先于 voice 字段） */
   voiceConfig: VoiceConfigSchema.optional(),
+  /** 多引擎 voiceName（最高优先）：如 "azure-v1:zh-CN-XiaoxiaoNeural"、"minimax:male-qn-qingse"、"omnivoice" */
+  voiceName: z.string().max(200).optional(),
   /**
    * 用户确认后的脚本覆盖。提供时跳过 LLM Call#1（不再生成脚本），
    * 直接按覆盖内容走 TTS → 渲染。标题/主题也以覆盖为准。

@@ -1,7 +1,7 @@
 import Fastify from "fastify";
 import cors from "@fastify/cors";
 import fastifyStatic from "@fastify/static";
-import { readFile, stat, mkdtemp, rm as rmPath } from "node:fs/promises";
+import { readFile, stat, mkdtemp, rm as rmPath, access } from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
 import { CreateJobRequestSchema } from "@data-news/shared";
@@ -10,7 +10,8 @@ import { loadManifest, resolveTemplateRoot } from "@data-news/templates";
 import { ingestCsv } from "@data-news/pipeline";
 import { planScript } from "@data-news/pipeline";
 import { JobStore } from "./jobs.js";
-import { resolveProvider } from "@data-news/tts";
+import { resolveProvider, synthesizeByVoiceName, engineCatalog } from "@data-news/tts";
+import { loadSettings, saveSettings, setDataDir } from "@data-news/settings";
 import { ArkClient } from "@data-news/llm";
 
 const PORT = Number(process.env.PORT ?? 8787);
@@ -20,10 +21,18 @@ void app.register(cors, { origin: process.env.WEB_ORIGIN ?? "http://localhost:30
 
 // 打包发行模式（STANDALONE=1）：直接托管 web 构建产物，单端口服务
 if (process.env.STANDALONE === "1") {
-  const webRoot = path.join(path.dirname(process.execPath), "resources", "web");
+  const candidates = [
+    path.join(path.dirname(process.execPath), "resources", "web"), // pkg 便携布局
+    path.resolve(process.cwd(), "../web/dist"),                     // 仓库内直跑
+  ];
+  let webRoot = candidates[0];
+  for (const c of candidates) {
+    if (await access(path.join(c, "index.html")).then(() => true).catch(() => false)) { webRoot = c; break; }
+  }
   void app.register(fastifyStatic, { root: webRoot, prefix: "/" });
 }
 
+if (process.env.JOB_DATA_DIR) setDataDir(process.env.JOB_DATA_DIR);
 const store = new JobStore();
 
 // 健康检查
@@ -51,6 +60,82 @@ app.post("/api/jobs", async (req, reply) => {
   return reply.code(202).send({ jobId: rec.id, status: rec.status });
 });
 
+// ---------- 设置中心 ----------
+app.get("/api/settings", async () => {
+  const s = await loadSettings();
+  return {
+    llm: s.llm,
+    tts: Object.fromEntries(Object.entries(s.tts).map(([k, v]) => [k, { ...v, apiKey: v.apiKey ? "•••已配置" : "" }])),
+  };
+});
+
+app.post("/api/settings", async (req, reply) => {
+  const body = req.body as { llm?: Record<string, unknown>; tts?: Record<string, Record<string, unknown>> };
+  // apiKey 传 "•••已配置" 表示未修改，跳过覆盖
+  const clean: typeof body = { llm: body.llm, tts: {} };
+  if (body.tts) {
+    for (const [engine, cfg] of Object.entries(body.tts)) {
+      const c = { ...cfg };
+      if (c.apiKey === "•••已配置") delete c.apiKey;
+      (clean.tts as Record<string, Record<string, unknown>>)[engine] = c;
+    }
+  }
+  if (clean.llm && (clean.llm as { apiKey?: string }).apiKey === "•••已配置") {
+    delete (clean.llm as { apiKey?: string }).apiKey;
+  }
+  await saveSettings(clean as never);
+  return { ok: true };
+});
+
+// TTS 引擎目录（设置页/确认页音色列表）
+app.get("/api/tts/engines", async () => engineCatalog());
+
+// LLM 连通性测试
+app.post("/api/llm/test", async (req, reply) => {
+  const body = req.body as { provider?: string; apiKey?: string; baseUrl?: string; model?: string; save?: boolean };
+  if (body.save) {
+    await saveSettings({ llm: { provider: (body.provider as "openai" | "claude") ?? "openai", apiKey: body.apiKey, baseUrl: body.baseUrl, model: body.model } });
+  }
+  try {
+    const { ArkClient } = await import("@data-news/llm");
+    const { loadSettings: ls } = await import("@data-news/settings");
+    const s = await ls();
+    const provider = body.provider ?? s.llm.provider ?? "openai";
+    const apiKey = body.apiKey && body.apiKey !== "•••已配置" ? body.apiKey : s.llm.apiKey;
+    const baseUrl = body.baseUrl ?? s.llm.baseUrl;
+    const model = body.model ?? s.llm.model;
+    const client = provider === "claude"
+      ? new ArkClient({ apiKey, model: model || "claude-sonnet-4-5", baseURL: baseUrl || "https://api.anthropic.com/v1" })
+      : new ArkClient({ apiKey, model: model || "glm-5.3-flash", baseURL: baseUrl });
+    const r = await client.chat([{ role: "user", content: "请原样输出: ok" }], { minTokens: 16 });
+    return { ok: r.content.toLowerCase().includes("ok"), model: client.model, sample: r.content.slice(0, 60), elapsedMs: r.elapsedMs };
+  } catch (e) {
+    return reply.code(502).send({ ok: false, error: (e as Error).message.slice(0, 300) });
+  }
+});
+
+// CSV 格式校验（首页"下一步"前置调用）
+app.post("/api/csv/validate", async (req, reply) => {
+  const body = req.body as { csv?: string };
+  try {
+    const table = ingestCsv(body.csv ?? "");
+    const numericCols = table.columns.filter((c) => c.type === "number").map((c) => c.name);
+    return {
+      ok: true,
+      rowCount: table.rowCount,
+      columns: table.columns,
+      numericCols,
+      warnings: [
+        ...(table.rowCount < 2 ? ["数据少于 2 行，建议至少 2 行"] : []),
+        ...(numericCols.length === 0 ? ["未识别到数字列，图表类模板将无法展示数值"] : []),
+      ],
+    };
+  } catch (e) {
+    return reply.code(400).send({ ok: false, error: (e as Error).message });
+  }
+});
+
+// 试听（voiceName 分发版）
 // 模板/主题样例视频（确认页预览用）：samples/<template>__<theme>.mp4
 app.get<{ Params: { tpl: string; theme: string } }>(
   "/api/samples/:tpl/:theme",
@@ -73,14 +158,16 @@ app.get<{ Params: { tpl: string; theme: string } }>(
 // 解说词试听：用与渲染完全一致的 TTS 链路合成短句，返回 mp3（可缓存）
 const previewCache = new Map<string, Buffer>();
 app.post("/api/tts/preview", async (req, reply) => {
-  const body = req.body as { text?: string; engine?: string; timbre?: string; voice?: string };
+  const body = req.body as { text?: string; engine?: string; timbre?: string; voice?: string; voiceName?: string };
   const text = (body.text ?? "").trim().slice(0, 120);
   if (!text) return reply.code(400).send({ error: "缺少试听文本" });
-  const engine = ["omnivoice", "macos-say", "edge-tts"].includes(body.engine ?? "") ? body.engine! : "auto";
   const timbre = body.timbre;
   const voice = body.voice ?? "zh-female-1";
+  const engine = body.voiceName
+    ? body.voiceName.slice(0, body.voiceName.indexOf(":") === -1 ? undefined : body.voiceName.indexOf(":"))
+    : (["omnivoice", "macos-say", "edge-tts"].includes(body.engine ?? "") ? body.engine! : "auto");
 
-  const cacheKey = `${engine}|${timbre ?? ""}|${voice}|${text}`;
+  const cacheKey = `${engine}|${timbre ?? ""}|${body.voiceName ?? voice}|${text}`;
   const cached = previewCache.get(cacheKey);
   if (cached) {
     reply.type("audio/mpeg");
@@ -91,7 +178,11 @@ app.post("/api/tts/preview", async (req, reply) => {
     const tmp = await mkdtemp(path.join(os.tmpdir(), "tts-prev-"));
     try {
       const out = path.join(tmp, "prev.mp3");
-      await provider.synthesize(text, voice as "zh-female-1", out);
+      if (body.voiceName) {
+        await synthesizeByVoiceName(text, body.voiceName, out, { timbre });
+      } else {
+        await provider.synthesize(text, voice as "zh-female-1", out);
+      }
       const buf = await readFile(out);
       previewCache.set(cacheKey, buf);
       reply.type("audio/mpeg");
@@ -201,6 +292,16 @@ const start = async () => {
   try {
     await app.listen({ port: PORT, host: "0.0.0.0" });
     app.log.info(`data-news server listening on :${PORT}`);
+    // 本地软件体验：启动后自动打开浏览器（standalone 模式）
+    if (process.env.STANDALONE === "1" && !process.env.NO_OPEN) {
+      const mod = process.platform === "darwin" ? "open" : process.platform === "win32" ? "start" : "xdg-open";
+      import("node:child_process").then(({ spawn }) => {
+        const child = spawn(mod, process.platform === "win32" ? ["", `http://localhost:${PORT}`] : [`http://localhost:${PORT}`], {
+          shell: process.platform === "win32", detached: true, stdio: "ignore",
+        });
+        child.unref();
+      });
+    }
   } catch (e) {
     app.log.error(e);
     process.exit(1);
