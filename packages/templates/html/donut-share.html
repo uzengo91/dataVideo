@@ -1,0 +1,218 @@
+<!doctype html>
+<html lang="zh-CN" data-composition-variables='[{"id": "headline", "type": "string", "label": "headline", "default": "\u6e20\u9053\u6784\u6210"}, {"id": "subline", "type": "string", "label": "subline", "default": "\u6309\u9500\u552e\u989d"}, {"id": "labels", "type": "string", "label": "labels", "default": "\u76f4\u9500,\u7535\u5546,\u5206\u9500,\u5176\u4ed6"}, {"id": "values", "type": "string", "label": "values", "default": "52,28,15,5"}, {"id": "theme", "type": "string", "label": "theme", "default": "light-tech"}]'>
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=1920, height=1080" />
+<script src="node_modules/gsap/dist/gsap.min.js"></script>
+<style>
+  /* 渲染器字体声明：OS 内置字体用 local() 满足确定性检查 */
+  @font-face { font-family: "PingFang SC"; src: local("PingFang SC"); }
+  @font-face { font-family: "Microsoft YaHei"; src: local("Microsoft YaHei"); }
+  @font-face { font-family: "Helvetica Neue"; src: local("Helvetica Neue"); }
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  html, body { width: 1920px; height: 1080px; overflow: hidden; }
+  body {
+    font-family: "PingFang SC", "Microsoft YaHei", "Helvetica Neue", Arial, sans-serif;
+    font-variant-numeric: tabular-nums;
+  }
+  /* ---------- 主题 ---------- */
+  .theme-dark-finance {
+    --bg: #0b0e14; --fg: #f5f7fa; --muted: #98a2b3;
+    --accent: #22c55e; --accent2: #ef4444; --grid: rgba(255,255,255,0.08);
+    background: var(--bg); color: var(--fg);
+  }
+  .theme-light-tech {
+    --bg: #f8fafc; --fg: #0f172a; --muted: #64748b;
+    --accent: #2563eb; --accent2: #dc2626; --grid: rgba(15,23,42,0.08);
+    background: var(--bg); color: var(--fg);
+  }
+
+  .theme-violet-trend {
+    --bg: #17102b; --fg: #f3efff; --muted: #a89ec9;
+    --accent: #a78bfa; --accent2: #fb7185; --grid: rgba(167,139,250,0.14);
+    background: var(--bg); color: var(--fg);
+  }
+  .theme-warm-sunrise {
+    --bg: #2a1608; --fg: #fff7ed; --muted: #d6b899;
+    --accent: #fb923c; --accent2: #ef4444; --grid: rgba(251,146,60,0.14);
+    background: var(--bg); color: var(--fg);
+  }
+  .theme-cool-mint {
+    --bg: #f2fbf6; --fg: #0f2e22; --muted: #5f8a78;
+    --accent: #10b981; --accent2: #f59e0b; --grid: rgba(16,185,129,0.12);
+    background: var(--bg); color: var(--fg);
+  }
+  .theme-ink-classic {
+    --bg: #101210; --fg: #f5f0e6; --muted: #a89f8d;
+    --accent: #d4af37; --accent2: #c0392b; --grid: rgba(212,175,55,0.12);
+    background: var(--bg); color: var(--fg);
+  }
+</style>
+</head>
+<body>
+<div id="donut-share" data-composition-id="donut-share"
+     data-width="1920" data-height="1080" data-start="0" data-duration="10">
+
+  <div class="ds-wrap">
+    <h1 id="ds-headline" class="headline"></h1>
+    <p id="ds-subline" class="subline"></p>
+    <div class="ds-body">
+      <div class="donut-box">
+        <svg id="ds-donut" viewBox="0 0 480 480"></svg>
+        <div id="ds-center" class="center"></div>
+      </div>
+      <div id="ds-legend" class="legend"></div>
+    </div>
+  </div>
+</div>
+
+<script>
+(function () {
+  const root = document.getElementById("donut-share");
+  const v = window.__hyperframes
+    ? window.__hyperframes.getVariables()
+    : Object.fromEntries(JSON.parse(document.documentElement.getAttribute("data-composition-variables")).map(v => [v.id, v.default]));
+
+  // 主题切换
+  root.classList.add("theme-" + (v.theme || "dark-finance"));
+
+  const headline = document.getElementById("ds-headline");
+  const subline = document.getElementById("ds-subline");
+  headline.textContent = v.headline;
+  subline.textContent = v.subline;
+
+  // 解析数据
+  const labels = String(v.labels || "").split(",").map(function (s) { return s.trim(); }).filter(Boolean);
+  const values = String(v.values || "").split(",").map(function (s) { return Number(s.trim()); })
+    .filter(function (x) { return isFinite(x) && x > 0; });
+  const n = Math.max(1, Math.min(labels.length, values.length, 5));
+  const total = values.slice(0, n).reduce(function (a, b) { return a + b; }, 0) || 1;
+
+  // 4-5 个可辨识层次：accent、accent2 及透明度变体（通过 CSS class 定义颜色）
+  const colorClasses = ["c1", "c2", "c3", "c4", "c5"];
+
+  // SVG 环形图（innerHTML 组装，命名空间自动处理）
+  const svg = document.getElementById("ds-donut");
+  const C = 240, R = 170, SW = 76;
+  const CIRC = 2 * Math.PI * R;
+  let sectorsHtml = "";
+  const segs = []; // 每扇区弧长
+  let acc = 0;
+  for (let i = 0; i < n; i++) {
+    const frac = values[i] / total;
+    const seg = frac * CIRC;
+    segs.push(seg);
+    sectorsHtml += '<circle class="sector ' + colorClasses[i % colorClasses.length] + '"' +
+      ' cx="' + C + '" cy="' + C + '" r="' + R + '" fill="none" stroke-width="' + SW + '"' +
+      ' stroke-dasharray="' + seg.toFixed(2) + " " + (CIRC - seg).toFixed(2) + '"' +
+      ' stroke-dashoffset="' + (-acc).toFixed(2) + '"' +
+      ' transform="rotate(-90 ' + C + " " + C + ')"/>';
+    acc += seg;
+  }
+  svg.innerHTML = sectorsHtml;
+
+  // 中心：第一项百分比
+  const center = document.getElementById("ds-center");
+  const pct0 = Math.round((values[0] / total) * 1000) / 10;
+  center.innerHTML = '<div class="center-num"></div><div class="center-cap"></div>';
+  center.querySelector(".center-num").textContent = pct0 + "%";
+  center.querySelector(".center-cap").textContent = labels[0] || "";
+
+  // 图例：色块 + 类目 + 百分比
+  const legend = document.getElementById("ds-legend");
+  const legendRows = [];
+  for (let i = 0; i < n; i++) {
+    const row = document.createElement("div");
+    row.className = "lg-row";
+    const sw = document.createElement("span");
+    sw.className = "swatch " + colorClasses[i % colorClasses.length];
+    const lab = document.createElement("span");
+    lab.className = "lg-label";
+    lab.textContent = labels[i];
+    const val = document.createElement("span");
+    val.className = "lg-val";
+    val.textContent = Math.round((values[i] / total) * 1000) / 10 + "%";
+    row.appendChild(sw); row.appendChild(lab); row.appendChild(val);
+    legend.appendChild(row);
+    legendRows.push(row);
+  }
+
+  // 动画（相对时间，秒）：入场在 1.5s 内完成
+  const tl = gsap.timeline({ paused: true });
+  tl.from(headline, { opacity: 0, y: 40, duration: 0.5, ease: "power2.out" }, 0)
+    .from(subline, { opacity: 0, duration: 0.4 }, 0.2);
+  const sectorEls = svg.querySelectorAll(".sector");
+  for (let i = 0; i < sectorEls.length; i++) {
+    // 逐扇区展开：从 0 弧长画到自身弧长
+    tl.fromTo(sectorEls[i],
+      { strokeDasharray: "0 " + CIRC },
+      { strokeDasharray: segs[i].toFixed(2) + " " + CIRC, duration: 0.4, ease: "power2.out" },
+      0.3 + i * 0.2);
+  }
+  tl.from(center, { opacity: 0, scale: 0.8, duration: 0.45, ease: "back.out(1.6)" }, 0.5);
+  for (let i = 0; i < legendRows.length; i++) {
+    tl.from(legendRows[i], { opacity: 0, x: 40, duration: 0.35, ease: "power2.out" }, 0.55 + i * 0.14);
+  }
+  tl.to({}, { duration: 1.5 }); // 尾部停留
+
+  window.__timelines = window.__timelines || {};
+  window.__timelines["donut-share"] = tl;
+})();
+</script>
+
+<style>
+[data-composition-id="donut-share"] { background: var(--bg); color: var(--fg); width: 1920px; height: 1080px; position: relative; }
+  [data-composition-id="donut-share"] .ds-wrap {
+    position: absolute; inset: 0; padding: 120px 160px;
+  }
+  [data-composition-id="donut-share"] .headline {
+    font-size: 56px; font-weight: 600; letter-spacing: 1px;
+  }
+  [data-composition-id="donut-share"] .subline {
+    font-size: 28px; color: var(--muted); margin-top: 10px;
+  }
+  [data-composition-id="donut-share"] .ds-body {
+    display: flex; align-items: center; gap: 140px; margin-top: 60px;
+  }
+  [data-composition-id="donut-share"] .donut-box {
+    position: relative; width: 480px; height: 480px; flex: 0 0 480px;
+  }
+  [data-composition-id="donut-share"] svg { width: 480px; height: 480px; }
+  [data-composition-id="donut-share"] .center {
+    position: absolute; top: 0; left: 0; width: 480px; height: 480px;
+    display: flex; flex-direction: column; justify-content: center; align-items: center;
+    pointer-events: none;
+  }
+  [data-composition-id="donut-share"] .center-num {
+    font-size: 88px; font-weight: 700; line-height: 1;
+  }
+  [data-composition-id="donut-share"] .center-cap {
+    font-size: 28px; color: var(--muted); margin-top: 12px;
+  }
+  [data-composition-id="donut-share"] .legend {
+    display: flex; flex-direction: column; gap: 34px;
+  }
+  [data-composition-id="donut-share"] .lg-row {
+    display: flex; align-items: center; gap: 22px;
+  }
+  [data-composition-id="donut-share"] .swatch {
+    width: 36px; height: 36px; border-radius: 8px; flex: 0 0 36px;
+  }
+  [data-composition-id="donut-share"] .lg-label { font-size: 34px; font-weight: 600; }
+  [data-composition-id="donut-share"] .lg-val {
+    font-size: 34px; font-weight: 700; color: var(--fg); opacity: 0.85;
+  }
+  /* 扇区配色：accent / accent2 及透明度变体（可辨识 5 层） */
+  [data-composition-id="donut-share"] .c1 { stroke: var(--accent); }
+  [data-composition-id="donut-share"] .c2 { stroke: color-mix(in srgb, var(--accent) 55%, transparent); }
+  [data-composition-id="donut-share"] .c3 { stroke: var(--accent2); }
+  [data-composition-id="donut-share"] .c4 { stroke: color-mix(in srgb, var(--accent2) 45%, transparent); }
+  [data-composition-id="donut-share"] .c5 { stroke: var(--muted); }
+  [data-composition-id="donut-share"] .swatch.c1 { background: var(--accent); }
+  [data-composition-id="donut-share"] .swatch.c2 { background: color-mix(in srgb, var(--accent) 55%, transparent); }
+  [data-composition-id="donut-share"] .swatch.c3 { background: var(--accent2); }
+  [data-composition-id="donut-share"] .swatch.c4 { background: color-mix(in srgb, var(--accent2) 45%, transparent); }
+  [data-composition-id="donut-share"] .swatch.c5 { background: var(--muted); }
+</style>
+</body>
+</html>

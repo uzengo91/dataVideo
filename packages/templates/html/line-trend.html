@@ -1,0 +1,213 @@
+<!doctype html>
+<html lang="zh-CN" data-composition-variables='[{"id": "headline", "type": "string", "label": "headline", "default": "\u6708\u5ea6\u6d3b\u8dc3\u7528\u6237"}, {"id": "subline", "type": "string", "label": "subline", "default": "\u5355\u4f4d\uff1a\u4e07"}, {"id": "labels", "type": "string", "label": "labels", "default": "7\u6708,8\u6708,9\u6708,10\u6708,11\u6708,12\u6708"}, {"id": "values", "type": "string", "label": "values", "default": "120,135,128,150,166,182"}, {"id": "highlightIndex", "type": "number", "label": "highlightIndex", "default": 5}, {"id": "theme", "type": "string", "label": "theme", "default": "dark-finance"}]'>
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=1920, height=1080" />
+<script src="node_modules/gsap/dist/gsap.min.js"></script>
+<style>
+  /* 渲染器字体声明：OS 内置字体用 local() 满足确定性检查 */
+  @font-face { font-family: "PingFang SC"; src: local("PingFang SC"); }
+  @font-face { font-family: "Microsoft YaHei"; src: local("Microsoft YaHei"); }
+  @font-face { font-family: "Helvetica Neue"; src: local("Helvetica Neue"); }
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  html, body { width: 1920px; height: 1080px; overflow: hidden; }
+  body {
+    font-family: "PingFang SC", "Microsoft YaHei", "Helvetica Neue", Arial, sans-serif;
+    font-variant-numeric: tabular-nums;
+  }
+  /* ---------- 主题 ---------- */
+  .theme-dark-finance {
+    --bg: #0b0e14; --fg: #f5f7fa; --muted: #98a2b3;
+    --accent: #22c55e; --accent2: #ef4444; --grid: rgba(255,255,255,0.08);
+    background: var(--bg); color: var(--fg);
+  }
+  .theme-light-tech {
+    --bg: #f8fafc; --fg: #0f172a; --muted: #64748b;
+    --accent: #2563eb; --accent2: #dc2626; --grid: rgba(15,23,42,0.08);
+    background: var(--bg); color: var(--fg);
+  }
+
+  .theme-violet-trend {
+    --bg: #17102b; --fg: #f3efff; --muted: #a89ec9;
+    --accent: #a78bfa; --accent2: #fb7185; --grid: rgba(167,139,250,0.14);
+    background: var(--bg); color: var(--fg);
+  }
+  .theme-warm-sunrise {
+    --bg: #2a1608; --fg: #fff7ed; --muted: #d6b899;
+    --accent: #fb923c; --accent2: #ef4444; --grid: rgba(251,146,60,0.14);
+    background: var(--bg); color: var(--fg);
+  }
+  .theme-cool-mint {
+    --bg: #f2fbf6; --fg: #0f2e22; --muted: #5f8a78;
+    --accent: #10b981; --accent2: #f59e0b; --grid: rgba(16,185,129,0.12);
+    background: var(--bg); color: var(--fg);
+  }
+  .theme-ink-classic {
+    --bg: #101210; --fg: #f5f0e6; --muted: #a89f8d;
+    --accent: #d4af37; --accent2: #c0392b; --grid: rgba(212,175,55,0.12);
+    background: var(--bg); color: var(--fg);
+  }
+</style>
+</head>
+<body>
+<div id="line-trend" data-composition-id="line-trend"
+     data-width="1920" data-height="1080" data-start="0" data-duration="10">
+
+  <div class="lt-wrap">
+    <h1 id="lt-headline" class="headline"></h1>
+    <p id="lt-subline" class="subline"></p>
+    <svg id="lt-chart" viewBox="0 0 1560 640" preserveAspectRatio="xMidYMid meet"></svg>
+  </div>
+</div>
+
+<script>
+(function () {
+  const root = document.getElementById("line-trend");
+  const v = window.__hyperframes
+    ? window.__hyperframes.getVariables()
+    : Object.fromEntries(JSON.parse(document.documentElement.getAttribute("data-composition-variables")).map(v => [v.id, v.default]));
+
+  // 主题切换
+  root.classList.add("theme-" + (v.theme || "dark-finance"));
+
+  const headline = document.getElementById("lt-headline");
+  const subline = document.getElementById("lt-subline");
+  headline.textContent = v.headline;
+  subline.textContent = v.subline;
+
+  // 解析数据
+  const labels = String(v.labels || "").split(",").map(function (s) { return s.trim(); }).filter(Boolean);
+  const values = String(v.values || "").split(",").map(function (s) { return Number(s.trim()); })
+    .filter(function (x) { return isFinite(x); });
+  const n = Math.max(2, Math.min(labels.length, values.length));
+
+  const svg = document.getElementById("lt-chart");
+  function fmtNum(x) {
+    const parts = Math.abs(x).toFixed(2).replace(/\.?0+$/, "").split(".");
+    parts[0] = parts[0].replace(/\B(?=(\d{3})+(?!\d))/g, ",");
+    return (x < 0 ? "-" : "") + parts.join(".");
+  }
+
+  // 坐标系：viewBox 0 0 1560 640
+  const W = 1560, H = 640, padL = 90, padR = 150, padT = 90, padB = 90;
+  const plotW = W - padL - padR, plotH = H - padT - padB;
+
+  // Y 轴范围：min*0.9 到 max*1.05
+  let vMin = Infinity, vMax = -Infinity;
+  for (let i = 0; i < n; i++) {
+    vMin = Math.min(vMin, values[i]);
+    vMax = Math.max(vMax, values[i]);
+  }
+  if (!isFinite(vMin)) { vMin = 0; vMax = 1; }
+  const yLo = vMin * 0.9, yHi = vMax * 1.05;
+  const yRange = (yHi - yLo) || 1;
+  const xAt = function (i) { return padL + (plotW * i) / (n - 1); };
+  const yAt = function (val) { return padT + ((yHi - val) / yRange) * plotH; };
+
+  const pts = [];
+  for (let i = 0; i < n; i++) pts.push({ x: xAt(i), y: yAt(values[i]) });
+
+  // 折线（描线动画用 dasharray/dashoffset）
+  const d = pts.map(function (p, i) {
+    return (i === 0 ? "M" : "L") + p.x.toFixed(1) + " " + p.y.toFixed(1);
+  }).join(" ");
+
+  // 网格线
+  let gridLines = "";
+  for (let k = 0; k <= 4; k++) {
+    const y = padT + (plotH * k) / 4;
+    gridLines += '<line class="grid-line" x1="' + padL + '" y1="' + y.toFixed(1) + '" x2="' + (W - padR) + '" y2="' + y.toFixed(1) + '"/>';
+  }
+
+  // 高亮点：highlightIndex 越界则回退为最大值点
+  let hi = Math.floor(Number(v.highlightIndex));
+  if (!isFinite(hi) || hi < 0 || hi >= n) {
+    hi = 0;
+    for (let i = 1; i < n; i++) if (values[i] > values[hi]) hi = i;
+  }
+
+  // 数据点圆点
+  let dots = "";
+  for (let i = 0; i < n; i++) {
+    if (i === hi) continue;
+    dots += '<circle class="dot" cx="' + pts[i].x.toFixed(1) + '" cy="' + pts[i].y.toFixed(1) + '" r="8"/>';
+  }
+
+  // X 轴标签
+  let xlabels = "";
+  for (let i = 0; i < n; i++) {
+    xlabels += '<text class="xlabel" x="' + pts[i].x.toFixed(1) + '" y="' + (H - 30) + '" text-anchor="middle">' + labels[i] + "</text>";
+  }
+
+  const hiLabelAnchor = pts[hi].x > W - 190 ? "end" : (pts[hi].x < 190 ? "start" : "middle");
+
+  // 组装 SVG（innerHTML，命名空间自动处理）
+  svg.innerHTML =
+    gridLines +
+    '<path class="line" d="' + d + '"/>' +
+    '<g id="lt-dots">' + dots + "</g>" +
+    '<circle id="lt-dot-hi" class="dot-hi" cx="' + pts[hi].x.toFixed(1) + '" cy="' + pts[hi].y.toFixed(1) + '" r="13"/>' +
+    '<text id="lt-hi-label" class="hi-label" x="' + pts[hi].x.toFixed(1) + '" y="' + (pts[hi].y - 30).toFixed(1) + '" text-anchor="' + hiLabelAnchor + '">' + fmtNum(values[hi]) + "</text>" +
+    xlabels;
+
+  // 动画（相对时间，秒）
+  const path = svg.querySelector(".line");
+  const gGrid = svg.querySelectorAll(".grid-line");
+  const dotsList = svg.querySelectorAll("#lt-dots .dot");
+  const hiCircle = svg.querySelector("#lt-dot-hi");
+  const hiLabel = svg.querySelector("#lt-hi-label");
+  const xlabelList = svg.querySelectorAll(".xlabel");
+
+  const tl = gsap.timeline({ paused: true });
+  tl.from(headline, { opacity: 0, y: 40, duration: 0.5, ease: "power2.out" }, 0)
+    .from(subline, { opacity: 0, duration: 0.4 }, 0.2);
+  if (gGrid.length) tl.from(gGrid, { opacity: 0, duration: 0.4 }, 0.2);
+  // 描线动画：先量取路径全长，从 0 画到全长
+  const len = path.getTotalLength();
+  path.setAttribute("stroke-dasharray", String(len));
+  path.setAttribute("stroke-dashoffset", String(len));
+  tl.to(path, { strokeDashoffset: 0, duration: 0.8, ease: "power1.inOut" }, 0.35);
+  // 圆点沿折线依次淡入
+  for (let i = 0; i < dotsList.length; i++) {
+    tl.from(dotsList[i], { opacity: 0, scale: 0, transformOrigin: "center", duration: 0.3, ease: "back.out(2)" }, 0.45 + i * (0.7 / Math.max(1, dotsList.length - 1)));
+  }
+  // X 轴标签依次淡入
+  for (let i = 0; i < xlabelList.length; i++) {
+    tl.from(xlabelList[i], { opacity: 0, y: 14, duration: 0.35 }, 0.4 + i * 0.1);
+  }
+  // 高亮点放大 + 数值标签
+  tl.from(hiCircle, { opacity: 0, scale: 0, transformOrigin: "center", duration: 0.3, ease: "back.out(2.2)" }, 1.15)
+    .from(hiLabel, { opacity: 0, y: 16, duration: 0.3, ease: "power2.out" }, 1.2)
+    .to({}, { duration: 1.5 }); // 尾部停留
+
+  window.__timelines = window.__timelines || {};
+  window.__timelines["line-trend"] = tl;
+})();
+</script>
+
+<style>
+[data-composition-id="line-trend"] { background: var(--bg); color: var(--fg); width: 1920px; height: 1080px; position: relative; }
+  [data-composition-id="line-trend"] .lt-wrap {
+    position: absolute; inset: 0; padding: 120px 180px 0;
+  }
+  [data-composition-id="line-trend"] .headline {
+    font-size: 56px; font-weight: 600; letter-spacing: 1px;
+  }
+  [data-composition-id="line-trend"] .subline {
+    font-size: 28px; color: var(--muted); margin-top: 10px;
+  }
+  [data-composition-id="line-trend"] svg {
+    width: 1560px; height: 640px; margin-top: 26px; overflow: visible;
+  }
+  [data-composition-id="line-trend"] .grid-line { stroke: var(--grid); stroke-width: 2; }
+  [data-composition-id="line-trend"] .line {
+    fill: none; stroke: var(--accent); stroke-width: 6;
+    stroke-linecap: round; stroke-linejoin: round;
+  }
+  [data-composition-id="line-trend"] .dot { fill: var(--accent); stroke: var(--bg); stroke-width: 3; }
+  [data-composition-id="line-trend"] .dot-hi { fill: var(--accent); stroke: var(--bg); stroke-width: 4; }
+  [data-composition-id="line-trend"] .xlabel { fill: var(--muted); font-size: 30px; }
+  [data-composition-id="line-trend"] .hi-label { fill: var(--accent); font-size: 44px; font-weight: 700; }
+</style>
+</body>
+</html>

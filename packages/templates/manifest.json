@@ -1,0 +1,521 @@
+{
+  "$schema": "./manifest.schema.json",
+  "templates": [
+    {
+      "id": "kpi-headline",
+      "name": "KPI 大字头条",
+      "description": "单指标大字展示 + 同比/环比增幅，适合财报开场与核心结论。",
+      "sceneHint": "开场或强调单个核心指标",
+      "html": "html/kpi-headline.html",
+      "duration": {
+        "min": 4,
+        "max": 12
+      },
+      "variables": {
+        "headline": {
+          "type": "string",
+          "required": true,
+          "maxLen": 30
+        },
+        "subline": {
+          "type": "string",
+          "required": false,
+          "maxLen": 60
+        },
+        "kpi": {
+          "type": "string",
+          "required": true,
+          "maxLen": 16,
+          "note": "已格式化的指标值，如 ¥4.28亿 / 23.5%"
+        },
+        "delta": {
+          "type": "string",
+          "required": false,
+          "maxLen": 10,
+          "note": "如 +23% / -4.2%"
+        },
+        "deltaLabel": {
+          "type": "string",
+          "required": false,
+          "maxLen": 10,
+          "note": "同比 / 环比 / YoY"
+        },
+        "deltaDir": {
+          "type": "string",
+          "required": false,
+          "enum": [
+            "up",
+            "down"
+          ]
+        },
+        "theme": {
+          "type": "string",
+          "required": true,
+          "enum": [
+            "dark-finance",
+            "light-tech",
+            "violet-trend",
+            "warm-sunrise",
+            "cool-mint",
+            "ink-classic"
+          ]
+        }
+      }
+    },
+    {
+      "id": "number-counter",
+      "name": "数字滚动",
+      "description": "数字从 0 滚动到目标值，强调量级与冲击力。",
+      "sceneHint": "强调一个会令人惊讶的总量或增长",
+      "html": "html/number-counter.html",
+      "duration": {
+        "min": 4,
+        "max": 12
+      },
+      "variables": {
+        "headline": {
+          "type": "string",
+          "required": true,
+          "maxLen": 30
+        },
+        "subline": {
+          "type": "string",
+          "required": false,
+          "maxLen": 60
+        },
+        "endValue": {
+          "type": "number",
+          "required": true,
+          "note": "滚动目标数字"
+        },
+        "decimals": {
+          "type": "number",
+          "required": false,
+          "note": "小数位，默认 0"
+        },
+        "prefix": {
+          "type": "string",
+          "required": false,
+          "maxLen": 6,
+          "note": "如 ¥ / $"
+        },
+        "suffix": {
+          "type": "string",
+          "required": false,
+          "maxLen": 6,
+          "note": "如 万 / 亿 / %"
+        },
+        "theme": {
+          "type": "string",
+          "required": true,
+          "enum": [
+            "dark-finance",
+            "light-tech",
+            "violet-trend",
+            "warm-sunrise",
+            "cool-mint",
+            "ink-classic"
+          ]
+        }
+      }
+    },
+    {
+      "id": "line-trend",
+      "name": "折线趋势",
+      "description": "折线随时间绘制并标注峰值/低谷，展示走势。",
+      "sceneHint": "展示时间序列走势",
+      "html": "html/line-trend.html",
+      "duration": {
+        "min": 5,
+        "max": 15
+      },
+      "variables": {
+        "headline": {
+          "type": "string",
+          "required": true,
+          "maxLen": 30
+        },
+        "subline": {
+          "type": "string",
+          "required": false,
+          "maxLen": 60
+        },
+        "labels": {
+          "type": "string",
+          "required": true,
+          "note": "逗号分隔的 X 轴标签，如 1月,2月,3月"
+        },
+        "values": {
+          "type": "string",
+          "required": true,
+          "note": "逗号分隔的数值，如 120,135,128"
+        },
+        "highlightIndex": {
+          "type": "number",
+          "required": false,
+          "note": "高亮点下标（0 起）"
+        },
+        "theme": {
+          "type": "string",
+          "required": true,
+          "enum": [
+            "dark-finance",
+            "light-tech",
+            "violet-trend",
+            "warm-sunrise",
+            "cool-mint",
+            "ink-classic"
+          ]
+        }
+      }
+    },
+    {
+      "id": "bar-race",
+      "name": "柱状对比",
+      "description": "分类柱状图依次生长，用于分类数值对比。",
+      "sceneHint": "比较若干类目的大小",
+      "html": "html/bar-race.html",
+      "duration": {
+        "min": 5,
+        "max": 15
+      },
+      "variables": {
+        "headline": {
+          "type": "string",
+          "required": true,
+          "maxLen": 30
+        },
+        "subline": {
+          "type": "string",
+          "required": false,
+          "maxLen": 60
+        },
+        "labels": {
+          "type": "string",
+          "required": true,
+          "note": "逗号分隔类目，最多 6 项"
+        },
+        "values": {
+          "type": "string",
+          "required": true,
+          "note": "逗号分隔数值"
+        },
+        "unit": {
+          "type": "string",
+          "required": false,
+          "maxLen": 8,
+          "note": "数值单位后缀"
+        },
+        "theme": {
+          "type": "string",
+          "required": true,
+          "enum": [
+            "dark-finance",
+            "light-tech",
+            "violet-trend",
+            "warm-sunrise",
+            "cool-mint",
+            "ink-classic"
+          ]
+        }
+      }
+    },
+    {
+      "id": "donut-share",
+      "name": "环形份额",
+      "description": "环形图展示构成份额，逐扇区展开。",
+      "sceneHint": "展示构成/市场份额",
+      "html": "html/donut-share.html",
+      "duration": {
+        "min": 5,
+        "max": 15
+      },
+      "variables": {
+        "headline": {
+          "type": "string",
+          "required": true,
+          "maxLen": 30
+        },
+        "subline": {
+          "type": "string",
+          "required": false,
+          "maxLen": 60
+        },
+        "labels": {
+          "type": "string",
+          "required": true,
+          "note": "逗号分隔类目，最多 5 项"
+        },
+        "values": {
+          "type": "string",
+          "required": true,
+          "note": "逗号分隔数值（自动算百分比）"
+        },
+        "theme": {
+          "type": "string",
+          "required": true,
+          "enum": [
+            "dark-finance",
+            "light-tech",
+            "violet-trend",
+            "warm-sunrise",
+            "cool-mint",
+            "ink-classic"
+          ]
+        }
+      }
+    },
+    {
+      "id": "waterfall",
+      "name": "瀑布图",
+      "description": "瀑布图展示从起点到终点的增减构成（利润桥/归因）。",
+      "sceneHint": "解释指标如何被各项拆解",
+      "html": "html/waterfall.html",
+      "duration": {
+        "min": 6,
+        "max": 15
+      },
+      "variables": {
+        "headline": {
+          "type": "string",
+          "required": true,
+          "maxLen": 30
+        },
+        "subline": {
+          "type": "string",
+          "required": false,
+          "maxLen": 60
+        },
+        "labels": {
+          "type": "string",
+          "required": true,
+          "note": "逗号分隔，首项为起点，末项为终点，中间为增减项"
+        },
+        "values": {
+          "type": "string",
+          "required": true,
+          "note": "逗号分隔，中间项正数为增加、负数为减少"
+        },
+        "unit": {
+          "type": "string",
+          "required": false,
+          "maxLen": 8
+        },
+        "theme": {
+          "type": "string",
+          "required": true,
+          "enum": [
+            "dark-finance",
+            "light-tech",
+            "violet-trend",
+            "warm-sunrise",
+            "cool-mint",
+            "ink-classic"
+          ]
+        }
+      }
+    },
+    {
+      "id": "geo-map",
+      "name": "区域榜单",
+      "description": "区域数据横条榜单 + 高亮头部区域（MVP 用榜单替代真实地图，保证数据可读性）。",
+      "sceneHint": "展示区域/国家维度数据",
+      "html": "html/geo-map.html",
+      "duration": {
+        "min": 5,
+        "max": 15
+      },
+      "variables": {
+        "headline": {
+          "type": "string",
+          "required": true,
+          "maxLen": 30
+        },
+        "subline": {
+          "type": "string",
+          "required": false,
+          "maxLen": 60
+        },
+        "labels": {
+          "type": "string",
+          "required": true,
+          "note": "逗号分隔区域名，最多 6 项"
+        },
+        "values": {
+          "type": "string",
+          "required": true,
+          "note": "逗号分隔数值"
+        },
+        "unit": {
+          "type": "string",
+          "required": false,
+          "maxLen": 8
+        },
+        "theme": {
+          "type": "string",
+          "required": true,
+          "enum": [
+            "dark-finance",
+            "light-tech",
+            "violet-trend",
+            "warm-sunrise",
+            "cool-mint",
+            "ink-classic"
+          ]
+        }
+      }
+    },
+    {
+      "id": "data-table-reveal",
+      "name": "报表逐行揭示",
+      "description": "原始数据表逐行浮现，强调数据来源可信。",
+      "sceneHint": "展示原始数据片段",
+      "html": "html/data-table-reveal.html",
+      "duration": {
+        "min": 5,
+        "max": 15
+      },
+      "variables": {
+        "headline": {
+          "type": "string",
+          "required": true,
+          "maxLen": 30
+        },
+        "subline": {
+          "type": "string",
+          "required": false,
+          "maxLen": 60
+        },
+        "columns": {
+          "type": "string",
+          "required": true,
+          "note": "逗号分隔列名，最多 4 列"
+        },
+        "rows": {
+          "type": "string",
+          "required": true,
+          "note": "分号分隔行，行内逗号分隔单元格，最多 5 行"
+        },
+        "theme": {
+          "type": "string",
+          "required": true,
+          "enum": [
+            "dark-finance",
+            "light-tech",
+            "violet-trend",
+            "warm-sunrise",
+            "cool-mint",
+            "ink-classic"
+          ]
+        }
+      }
+    },
+    {
+      "id": "compare-split",
+      "name": "左右对比",
+      "description": "左右两栏对比两个时期/对象的同口径指标。",
+      "sceneHint": "对比两个对象或时期",
+      "html": "html/compare-split.html",
+      "duration": {
+        "min": 5,
+        "max": 15
+      },
+      "variables": {
+        "headline": {
+          "type": "string",
+          "required": true,
+          "maxLen": 30
+        },
+        "subline": {
+          "type": "string",
+          "required": false,
+          "maxLen": 60
+        },
+        "leftLabel": {
+          "type": "string",
+          "required": true,
+          "maxLen": 12,
+          "note": "左侧名，如 2023"
+        },
+        "leftValue": {
+          "type": "string",
+          "required": true,
+          "maxLen": 16
+        },
+        "rightLabel": {
+          "type": "string",
+          "required": true,
+          "maxLen": 12,
+          "note": "右侧名，如 2024"
+        },
+        "rightValue": {
+          "type": "string",
+          "required": true,
+          "maxLen": 16
+        },
+        "delta": {
+          "type": "string",
+          "required": false,
+          "maxLen": 10
+        },
+        "deltaDir": {
+          "type": "string",
+          "required": false,
+          "enum": [
+            "up",
+            "down"
+          ]
+        },
+        "theme": {
+          "type": "string",
+          "required": true,
+          "enum": [
+            "dark-finance",
+            "light-tech",
+            "violet-trend",
+            "warm-sunrise",
+            "cool-mint",
+            "ink-classic"
+          ]
+        }
+      }
+    },
+    {
+      "id": "quote-insight",
+      "name": "结论金句",
+      "description": "大字结论卡，用于结尾总结洞察。",
+      "sceneHint": "结尾总结",
+      "html": "html/quote-insight.html",
+      "duration": {
+        "min": 4,
+        "max": 12
+      },
+      "variables": {
+        "headline": {
+          "type": "string",
+          "required": true,
+          "maxLen": 40,
+          "note": "金句正文（短）"
+        },
+        "subline": {
+          "type": "string",
+          "required": false,
+          "maxLen": 80,
+          "note": "补充说明/署名"
+        },
+        "theme": {
+          "type": "string",
+          "required": true,
+          "enum": [
+            "dark-finance",
+            "light-tech",
+            "violet-trend",
+            "warm-sunrise",
+            "cool-mint",
+            "ink-classic"
+          ]
+        }
+      }
+    }
+  ]
+}

@@ -1,0 +1,231 @@
+<!doctype html>
+<html lang="zh-CN" data-composition-variables='[{"id": "headline", "type": "string", "label": "headline", "default": "\u5229\u6da6\u6865"}, {"id": "subline", "type": "string", "label": "subline", "default": "\u5355\u4f4d\uff1a\u767e\u4e07\u5143"}, {"id": "labels", "type": "string", "label": "labels", "default": "2023,\u6536\u5165\u589e\u957f,\u6210\u672c\u4f18\u5316,\u6c47\u7387,2024"}, {"id": "values", "type": "string", "label": "values", "default": "100,45,20,-12,153"}, {"id": "unit", "type": "string", "label": "unit", "default": "M"}, {"id": "theme", "type": "string", "label": "theme", "default": "dark-finance"}]'>
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=1920, height=1080" />
+<script src="node_modules/gsap/dist/gsap.min.js"></script>
+<style>
+  /* 渲染器字体声明：OS 内置字体用 local() 满足确定性检查 */
+  @font-face { font-family: "PingFang SC"; src: local("PingFang SC"); }
+  @font-face { font-family: "Microsoft YaHei"; src: local("Microsoft YaHei"); }
+  @font-face { font-family: "Helvetica Neue"; src: local("Helvetica Neue"); }
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  html, body { width: 1920px; height: 1080px; overflow: hidden; }
+  body {
+    font-family: "PingFang SC", "Microsoft YaHei", "Helvetica Neue", Arial, sans-serif;
+    font-variant-numeric: tabular-nums;
+  }
+  /* ---------- 主题 ---------- */
+  .theme-dark-finance {
+    --bg: #0b0e14; --fg: #f5f7fa; --muted: #98a2b3;
+    --accent: #22c55e; --accent2: #ef4444; --grid: rgba(255,255,255,0.08);
+    background: var(--bg); color: var(--fg);
+  }
+  .theme-light-tech {
+    --bg: #f8fafc; --fg: #0f172a; --muted: #64748b;
+    --accent: #2563eb; --accent2: #dc2626; --grid: rgba(15,23,42,0.08);
+    background: var(--bg); color: var(--fg);
+  }
+
+  .theme-violet-trend {
+    --bg: #17102b; --fg: #f3efff; --muted: #a89ec9;
+    --accent: #a78bfa; --accent2: #fb7185; --grid: rgba(167,139,250,0.14);
+    background: var(--bg); color: var(--fg);
+  }
+  .theme-warm-sunrise {
+    --bg: #2a1608; --fg: #fff7ed; --muted: #d6b899;
+    --accent: #fb923c; --accent2: #ef4444; --grid: rgba(251,146,60,0.14);
+    background: var(--bg); color: var(--fg);
+  }
+  .theme-cool-mint {
+    --bg: #f2fbf6; --fg: #0f2e22; --muted: #5f8a78;
+    --accent: #10b981; --accent2: #f59e0b; --grid: rgba(16,185,129,0.12);
+    background: var(--bg); color: var(--fg);
+  }
+  .theme-ink-classic {
+    --bg: #101210; --fg: #f5f0e6; --muted: #a89f8d;
+    --accent: #d4af37; --accent2: #c0392b; --grid: rgba(212,175,55,0.12);
+    background: var(--bg); color: var(--fg);
+  }
+</style>
+</head>
+<body>
+<div id="waterfall" data-composition-id="waterfall"
+     data-width="1920" data-height="1080" data-start="0" data-duration="12">
+
+  <div class="wf-wrap">
+    <h1 id="wf-headline" class="headline"></h1>
+    <p id="wf-subline" class="subline"></p>
+    <svg id="wf-chart" viewBox="0 0 1560 640" preserveAspectRatio="xMidYMid meet"></svg>
+  </div>
+</div>
+
+<script>
+(function () {
+  const root = document.getElementById("waterfall");
+  const v = window.__hyperframes
+    ? window.__hyperframes.getVariables()
+    : Object.fromEntries(JSON.parse(document.documentElement.getAttribute("data-composition-variables")).map(v => [v.id, v.default]));
+
+  // 主题切换
+  root.classList.add("theme-" + (v.theme || "dark-finance"));
+
+  const headline = document.getElementById("wf-headline");
+  const subline = document.getElementById("wf-subline");
+  headline.textContent = v.headline;
+  subline.textContent = v.subline;
+
+  // 解析数据
+  const labels = String(v.labels || "").split(",").map(function (s) { return s.trim(); }).filter(Boolean);
+  const values = String(v.values || "").split(",").map(function (s) { return Number(s.trim()); })
+    .filter(function (x) { return isFinite(x); });
+  const n = Math.max(2, Math.min(labels.length, values.length));
+
+  function fmtNum(x) {
+    const parts = Math.abs(x).toFixed(2).replace(/\.?0+$/, "").split(".");
+    parts[0] = parts[0].replace(/\B(?=(\d{3})+(?!\d))/g, ",");
+    return (x < 0 ? "-" : "") + parts.join(".");
+  }
+
+  // 坐标系
+  const W = 1560, H = 640, padT = 110, padB = 90, padX = 40;
+  const plotH = H - padT - padB;
+  const slot = (W - padX * 2) / n;
+  const barW = Math.min(140, slot * 0.56);
+
+  // 累进计算每柱 bottom/height（数据值域）
+  let run = 0;
+  const cols = []; // {label, value, bottom, height, kind: start|up|down|end, endVal}
+  for (let i = 0; i < n; i++) {
+    const val = values[i];
+    let col;
+    if (i === 0) {
+      run = val;
+      col = { label: labels[i], value: val, bottom: 0, height: val, kind: "start" };
+    } else if (i === n - 1) {
+      col = { label: labels[i], value: val, bottom: 0, height: val, kind: "end" };
+      run = val; // 终点柱校准游标
+    } else {
+      const from = run;
+      run = run + val;
+      col = {
+        label: labels[i], value: val,
+        bottom: Math.min(from, run), height: Math.abs(val),
+        kind: val >= 0 ? "up" : "down"
+      };
+    }
+    col.endVal = run;
+    cols.push(col);
+  }
+
+  // Y 轴范围：0 到最大累计峰值 * 1.1
+  let peak = 0;
+  for (let i = 0; i < n; i++) {
+    peak = Math.max(peak, cols[i].bottom + cols[i].height, Math.abs(values[i]));
+  }
+  const yHi = peak * 1.1 || 1;
+  const yAt = function (val) { return padT + (1 - val / yHi) * plotH; };
+
+  // 组装 SVG（innerHTML，命名空间自动处理）
+  let svgStr = "";
+  // 网格线 + 基线
+  for (let k = 1; k <= 4; k++) {
+    const y = yAt((yHi / 4) * k).toFixed(1);
+    svgStr += '<line class="grid-line" x1="' + padX + '" y1="' + y + '" x2="' + (W - padX) + '" y2="' + y + '"/>';
+  }
+  svgStr += '<line class="axis-line" x1="' + padX + '" y1="' + yAt(0).toFixed(1) + '" x2="' + (W - padX) + '" y2="' + yAt(0).toFixed(1) + '"/>';
+
+  // 柱 + 连接虚线 + 数值 + X 标签
+  const barMeta = []; // 供动画用
+  for (let i = 0; i < n; i++) {
+    const c = cols[i];
+    const x = padX + slot * i + (slot - barW) / 2;
+    const yTop = yAt(c.bottom + c.height);
+    const yBot = yAt(c.bottom);
+    const hPx = Math.max(2, yBot - yTop);
+    svgStr += '<rect id="wf-bar-' + i + '" class="bar ' + c.kind + '" x="' + x.toFixed(1) + '" y="' + yTop.toFixed(1) +
+      '" width="' + barW.toFixed(1) + '" height="' + hPx.toFixed(1) + '" rx="6"/>';
+    // 柱顶数值（负值柱标在柱底下）
+    const vy = c.kind === "down" ? (yBot + 44) : (yTop - 16);
+    const sign = c.kind === "up" ? "+" : (c.kind === "down" ? "−" : "");
+    svgStr += '<text id="wf-val-' + i + '" class="val ' + c.kind + '" x="' + (x + barW / 2).toFixed(1) + '" y="' + vy.toFixed(1) +
+      '" text-anchor="middle">' + sign + fmtNum(c.value) + (v.unit || "") + "</text>";
+    // X 轴标签
+    svgStr += '<text id="wf-x-' + i + '" class="xlabel" x="' + (x + barW / 2).toFixed(1) + '" y="' + (H - 26) +
+      '" text-anchor="middle">' + c.label + "</text>";
+    // 连接虚线：上一柱结束水平连到本柱左侧
+    if (i > 0) {
+      const y = yAt(cols[i - 1].endVal).toFixed(1);
+      const x1 = padX + slot * (i - 1) + (slot + barW) / 2;
+      const x2 = padX + slot * i + (slot - barW) / 2;
+      if (x2 > x1) {
+        svgStr += '<line id="wf-conn-' + i + '" class="connector" x1="' + x1.toFixed(1) + '" y1="' + y +
+          '" x2="' + x2.toFixed(1) + '" y2="' + y + '"/>';
+      }
+    }
+    barMeta.push({ yBot: yBot, yTop: yTop, kind: c.kind });
+  }
+  const svgEl = document.getElementById("wf-chart");
+  svgEl.innerHTML = svgStr;
+
+  // 动画（相对时间，秒）：柱子依次升起（scaleY 自柱底），虚线、数值、标签跟随；入场 1.5s 内完成
+  const tl = gsap.timeline({ paused: true });
+  tl.from(headline, { opacity: 0, y: 40, duration: 0.5, ease: "power2.out" }, 0)
+    .from(subline, { opacity: 0, duration: 0.4 }, 0.2)
+    .from(svgEl.querySelectorAll(".grid-line"), { opacity: 0, duration: 0.4 }, 0.2);
+
+  const step = Math.min(0.18, 0.85 / n); // n 柱总入场控制在 1.5s 内
+  for (let i = 0; i < n; i++) {
+    const t0 = 0.3 + i * step;
+    const rect = svgEl.querySelector("#wf-bar-" + i);
+    const meta = barMeta[i];
+    // GSAP 对 SVG 元素的 transformOrigin 以元素自身 bbox 为准：
+    // x 用 50%（水平中心），y 用像素（自 bbox 顶部到柱底的距离）
+    const originY = (meta.yBot - meta.yTop).toFixed(1) + "px";
+    tl.fromTo(rect,
+      { scaleY: 0.0001, transformOrigin: "50% " + originY },
+      { scaleY: 1, duration: 0.4, ease: "power3.out" }, t0)
+      .from(svgEl.querySelector("#wf-x-" + i), { opacity: 0, y: 14, duration: 0.25 }, t0 + 0.05)
+      .from(svgEl.querySelector("#wf-val-" + i), { opacity: 0, duration: 0.25 }, t0 + 0.22);
+    if (i > 0) {
+      const conn = svgEl.querySelector("#wf-conn-" + i);
+      if (conn) tl.from(conn, { opacity: 0, duration: 0.2 }, Math.max(0, t0 - 0.02));
+    }
+  }
+  tl.to({}, { duration: 1.5 }); // 尾部停留
+
+  window.__timelines = window.__timelines || {};
+  window.__timelines["waterfall"] = tl;
+})();
+</script>
+
+<style>
+[data-composition-id="waterfall"] { background: var(--bg); color: var(--fg); width: 1920px; height: 1080px; position: relative; }
+  [data-composition-id="waterfall"] .wf-wrap {
+    position: absolute; inset: 0; padding: 120px 180px 0;
+  }
+  [data-composition-id="waterfall"] .headline {
+    font-size: 56px; font-weight: 600; letter-spacing: 1px;
+  }
+  [data-composition-id="waterfall"] .subline {
+    font-size: 28px; color: var(--muted); margin-top: 10px;
+  }
+  [data-composition-id="waterfall"] svg {
+    width: 1560px; height: 640px; margin-top: 26px; overflow: visible;
+  }
+  [data-composition-id="waterfall"] .grid-line { stroke: var(--grid); stroke-width: 2; }
+  [data-composition-id="waterfall"] .axis-line { stroke: var(--muted); stroke-width: 2; }
+  [data-composition-id="waterfall"] .bar.start { fill: var(--muted); opacity: 0.85; }
+  [data-composition-id="waterfall"] .bar.end { fill: var(--accent); }
+  [data-composition-id="waterfall"] .bar.up { fill: var(--accent); fill-opacity: 0.85; }
+  [data-composition-id="waterfall"] .bar.down { fill: var(--accent2); fill-opacity: 0.85; }
+  [data-composition-id="waterfall"] .connector {
+    stroke: var(--muted); stroke-width: 2; stroke-dasharray: 6 6;
+  }
+  [data-composition-id="waterfall"] .val { fill: var(--fg); font-size: 30px; font-weight: 700; }
+  [data-composition-id="waterfall"] .val.up { fill: var(--accent); }
+  [data-composition-id="waterfall"] .val.down { fill: var(--accent2); }
+  [data-composition-id="waterfall"] .xlabel { fill: var(--muted); font-size: 28px; }
+</style>
+</body>
+</html>

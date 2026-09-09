@@ -1,0 +1,12 @@
+node_modules/
+dist/
+build/
+data/
+*.log
+.env
+.DS_Store
+__pycache__/
+out_*.wav
+tts_demo.py
+sess_*.zcode-session
+.video_agent/

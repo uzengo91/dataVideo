@@ -1,0 +1,178 @@
+<!doctype html>
+<html lang="zh-CN" data-composition-variables='[{"id": "headline", "type": "string", "label": "headline", "default": "\u533a\u57df\u8425\u6536\u6392\u884c"}, {"id": "subline", "type": "string", "label": "subline", "default": "Top \u533a\u57df"}, {"id": "labels", "type": "string", "label": "labels", "default": "\u5e7f\u4e1c,\u6c5f\u82cf,\u6d59\u6c5f,\u4e0a\u6d77, California"}, {"id": "values", "type": "string", "label": "values", "default": "320,280,240,190,150"}, {"id": "unit", "type": "string", "label": "unit", "default": "\u4ebf"}, {"id": "theme", "type": "string", "label": "theme", "default": "dark-finance"}]'>
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=1920, height=1080" />
+<script src="node_modules/gsap/dist/gsap.min.js"></script>
+<style>
+  /* 渲染器字体声明：OS 内置字体用 local() 满足确定性检查 */
+  @font-face { font-family: "PingFang SC"; src: local("PingFang SC"); }
+  @font-face { font-family: "Microsoft YaHei"; src: local("Microsoft YaHei"); }
+  @font-face { font-family: "Helvetica Neue"; src: local("Helvetica Neue"); }
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  html, body { width: 1920px; height: 1080px; overflow: hidden; }
+  body {
+    font-family: "PingFang SC", "Microsoft YaHei", "Helvetica Neue", Arial, sans-serif;
+    font-variant-numeric: tabular-nums;
+  }
+  /* ---------- 主题 ---------- */
+  .theme-dark-finance {
+    --bg: #0b0e14; --fg: #f5f7fa; --muted: #98a2b3;
+    --accent: #22c55e; --accent2: #ef4444; --grid: rgba(255,255,255,0.08);
+    background: var(--bg); color: var(--fg);
+  }
+  .theme-light-tech {
+    --bg: #f8fafc; --fg: #0f172a; --muted: #64748b;
+    --accent: #2563eb; --accent2: #dc2626; --grid: rgba(15,23,42,0.08);
+    background: var(--bg); color: var(--fg);
+  }
+
+  .theme-violet-trend {
+    --bg: #17102b; --fg: #f3efff; --muted: #a89ec9;
+    --accent: #a78bfa; --accent2: #fb7185; --grid: rgba(167,139,250,0.14);
+    background: var(--bg); color: var(--fg);
+  }
+  .theme-warm-sunrise {
+    --bg: #2a1608; --fg: #fff7ed; --muted: #d6b899;
+    --accent: #fb923c; --accent2: #ef4444; --grid: rgba(251,146,60,0.14);
+    background: var(--bg); color: var(--fg);
+  }
+  .theme-cool-mint {
+    --bg: #f2fbf6; --fg: #0f2e22; --muted: #5f8a78;
+    --accent: #10b981; --accent2: #f59e0b; --grid: rgba(16,185,129,0.12);
+    background: var(--bg); color: var(--fg);
+  }
+  .theme-ink-classic {
+    --bg: #101210; --fg: #f5f0e6; --muted: #a89f8d;
+    --accent: #d4af37; --accent2: #c0392b; --grid: rgba(212,175,55,0.12);
+    background: var(--bg); color: var(--fg);
+  }
+</style>
+</head>
+<body>
+<div id="geo-map" data-composition-id="geo-map"
+     data-width="1920" data-height="1080" data-start="0" data-duration="10">
+
+  <div class="gm-wrap">
+    <h1 id="gm-headline" class="headline"></h1>
+    <p id="gm-subline" class="subline"></p>
+    <div id="gm-rows" class="rows"></div>
+  </div>
+</div>
+
+<script>
+(function () {
+  const root = document.getElementById("geo-map");
+  const v = window.__hyperframes
+    ? window.__hyperframes.getVariables()
+    : Object.fromEntries(JSON.parse(document.documentElement.getAttribute("data-composition-variables")).map(v => [v.id, v.default]));
+
+  // 主题切换
+  root.classList.add("theme-" + (v.theme || "dark-finance"));
+
+  const headline = document.getElementById("gm-headline");
+  const subline = document.getElementById("gm-subline");
+  const rowsEl = document.getElementById("gm-rows");
+  headline.textContent = v.headline;
+  subline.textContent = v.subline;
+
+  // 解析数据（保持给定顺序，最多 6 行）
+  const labels = String(v.labels || "").split(",").map(function (s) { return s.trim(); }).filter(Boolean);
+  const values = String(v.values || "").split(",").map(function (s) { return Number(s.trim()); })
+    .filter(function (x) { return isFinite(x); });
+  const items = labels.map(function (lab, i) { return { label: lab, value: values[i] || 0 }; }).slice(0, 6);
+  const maxVal = items.length ? Math.max.apply(null, items.map(function (it) { return it.value; })) : 1;
+  const unit = v.unit || "";
+
+  function fmtNum(x) {
+    const parts = Math.abs(x).toFixed(2).replace(/\.?0+$/, "").split(".");
+    parts[0] = parts[0].replace(/\B(?=(\d{3})+(?!\d))/g, ",");
+    return (x < 0 ? "-" : "") + parts.join(".");
+  }
+
+  // 构建 DOM：每行 = 排名 + 区域名 + 横条(含数值)；最大条宽 72% 轨道，给数值留空间
+  const rows = [];
+  for (let i = 0; i < items.length; i++) {
+    const row = document.createElement("div");
+    row.className = "row" + (i === 0 ? " top" : "");
+    const rank = document.createElement("span");
+    rank.className = "rank";
+    rank.textContent = String(i + 1).padStart(2, "0");
+    const name = document.createElement("span");
+    name.className = "name";
+    name.textContent = items[i].label;
+    const track = document.createElement("div");
+    track.className = "track";
+    const bar = document.createElement("div");
+    bar.className = "bar";
+    bar.style.width = Math.max(2, (items[i].value / maxVal) * 72) + "%";
+    const val = document.createElement("span");
+    val.className = "val";
+    val.textContent = fmtNum(items[i].value) + unit;
+    track.appendChild(bar);
+    track.appendChild(val);
+    row.appendChild(rank);
+    row.appendChild(name);
+    row.appendChild(track);
+    rowsEl.appendChild(row);
+    rows.push({ row: row, bar: bar, val: val });
+  }
+
+  // 动画（相对时间，秒）：行依次从左滑入，条内 scaleX 生长；入场 1.5s 内完成
+  const tl = gsap.timeline({ paused: true });
+  tl.from(headline, { opacity: 0, y: 40, duration: 0.5, ease: "power2.out" }, 0)
+    .from(subline, { opacity: 0, duration: 0.4 }, 0.2);
+  const step = Math.min(0.15, 0.8 / items.length);
+  for (let i = 0; i < rows.length; i++) {
+    const t0 = 0.3 + i * step;
+    tl.from(rows[i].row, { opacity: 0, x: 80, duration: 0.35, ease: "power2.out" }, t0)
+      .fromTo(rows[i].bar, { scaleX: 0.0001 }, { scaleX: 1, duration: 0.45, ease: "power3.out" }, t0 + 0.05)
+      .from(rows[i].val, { opacity: 0, duration: 0.25 }, t0 + 0.3);
+  }
+  tl.to({}, { duration: 1.5 }); // 尾部停留
+
+  window.__timelines = window.__timelines || {};
+  window.__timelines["geo-map"] = tl;
+})();
+</script>
+
+<style>
+[data-composition-id="geo-map"] { background: var(--bg); color: var(--fg); width: 1920px; height: 1080px; position: relative; }
+  [data-composition-id="geo-map"] .gm-wrap {
+    position: absolute; inset: 0; padding: 120px 160px;
+  }
+  [data-composition-id="geo-map"] .headline {
+    font-size: 56px; font-weight: 600; letter-spacing: 1px;
+  }
+  [data-composition-id="geo-map"] .subline {
+    font-size: 28px; color: var(--muted); margin-top: 10px;
+  }
+  [data-composition-id="geo-map"] .rows {
+    margin-top: 56px; display: flex; flex-direction: column; gap: 36px;
+  }
+  [data-composition-id="geo-map"] .row {
+    display: flex; align-items: center; gap: 28px;
+  }
+  [data-composition-id="geo-map"] .rank {
+    flex: 0 0 64px; font-size: 40px; font-weight: 700; color: var(--muted);
+  }
+  [data-composition-id="geo-map"] .row.top .rank { color: var(--accent); }
+  [data-composition-id="geo-map"] .name {
+    flex: 0 0 240px; font-size: 38px; font-weight: 600; white-space: nowrap;
+    overflow: hidden; text-overflow: ellipsis;
+  }
+  [data-composition-id="geo-map"] .track {
+    flex: 1; display: flex; align-items: center; gap: 24px; min-width: 0;
+  }
+  [data-composition-id="geo-map"] .bar {
+    height: 56px; border-radius: 8px;
+    background: color-mix(in srgb, var(--accent) 35%, transparent);
+    transform-origin: left center;
+  }
+  [data-composition-id="geo-map"] .row.top .bar { background: var(--accent); }
+  [data-composition-id="geo-map"] .val {
+    font-size: 36px; font-weight: 700; white-space: nowrap;
+  }
+</style>
+</body>
+</html>

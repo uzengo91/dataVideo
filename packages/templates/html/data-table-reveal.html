@@ -1,0 +1,161 @@
+<!doctype html>
+<html lang="zh-CN" data-composition-variables='[{"id": "headline", "type": "string", "label": "headline", "default": "\u539f\u59cb\u6570\u636e\u62bd\u67e5"}, {"id": "subline", "type": "string", "label": "subline", "default": "\u6765\u6e90\uff1a\u8d22\u52a1\u7cfb\u7edf\u5bfc\u51fa"}, {"id": "columns", "type": "string", "label": "columns", "default": "\u6708\u4efd,\u8425\u6536,\u6bdb\u5229\u7387"}, {"id": "rows", "type": "string", "label": "rows", "default": "7\u6708,1.2\u4ebf,42%;8\u6708,1.35\u4ebf,44%;9\u6708,1.5\u4ebf,45%"}, {"id": "theme", "type": "string", "label": "theme", "default": "light-tech"}]'>
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=1920, height=1080" />
+<script src="node_modules/gsap/dist/gsap.min.js"></script>
+<style>
+  /* 渲染器字体声明：OS 内置字体用 local() 满足确定性检查 */
+  @font-face { font-family: "PingFang SC"; src: local("PingFang SC"); }
+  @font-face { font-family: "Microsoft YaHei"; src: local("Microsoft YaHei"); }
+  @font-face { font-family: "Helvetica Neue"; src: local("Helvetica Neue"); }
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  html, body { width: 1920px; height: 1080px; overflow: hidden; }
+  body {
+    font-family: "PingFang SC", "Microsoft YaHei", "Helvetica Neue", Arial, sans-serif;
+    font-variant-numeric: tabular-nums;
+  }
+  /* ---------- 主题 ---------- */
+  .theme-dark-finance {
+    --bg: #0b0e14; --fg: #f5f7fa; --muted: #98a2b3;
+    --accent: #22c55e; --accent2: #ef4444; --grid: rgba(255,255,255,0.08);
+    background: var(--bg); color: var(--fg);
+  }
+  .theme-light-tech {
+    --bg: #f8fafc; --fg: #0f172a; --muted: #64748b;
+    --accent: #2563eb; --accent2: #dc2626; --grid: rgba(15,23,42,0.08);
+    background: var(--bg); color: var(--fg);
+  }
+
+  .theme-violet-trend {
+    --bg: #17102b; --fg: #f3efff; --muted: #a89ec9;
+    --accent: #a78bfa; --accent2: #fb7185; --grid: rgba(167,139,250,0.14);
+    background: var(--bg); color: var(--fg);
+  }
+  .theme-warm-sunrise {
+    --bg: #2a1608; --fg: #fff7ed; --muted: #d6b899;
+    --accent: #fb923c; --accent2: #ef4444; --grid: rgba(251,146,60,0.14);
+    background: var(--bg); color: var(--fg);
+  }
+  .theme-cool-mint {
+    --bg: #f2fbf6; --fg: #0f2e22; --muted: #5f8a78;
+    --accent: #10b981; --accent2: #f59e0b; --grid: rgba(16,185,129,0.12);
+    background: var(--bg); color: var(--fg);
+  }
+  .theme-ink-classic {
+    --bg: #101210; --fg: #f5f0e6; --muted: #a89f8d;
+    --accent: #d4af37; --accent2: #c0392b; --grid: rgba(212,175,55,0.12);
+    background: var(--bg); color: var(--fg);
+  }
+</style>
+</head>
+<body>
+<div id="data-table-reveal" data-composition-id="data-table-reveal"
+     data-width="1920" data-height="1080" data-start="0" data-duration="10">
+
+  <div class="dt-wrap">
+    <h1 id="dt-headline" class="headline"></h1>
+    <p id="dt-subline" class="subline"></p>
+    <table id="dt-table" class="table">
+      <thead id="dt-thead"></thead>
+      <tbody id="dt-tbody"></tbody>
+    </table>
+  </div>
+</div>
+
+<script>
+(function () {
+  const root = document.getElementById("data-table-reveal");
+  const v = window.__hyperframes
+    ? window.__hyperframes.getVariables()
+    : Object.fromEntries(JSON.parse(document.documentElement.getAttribute("data-composition-variables")).map(v => [v.id, v.default]));
+
+  // 主题切换
+  root.classList.add("theme-" + (v.theme || "dark-finance"));
+
+  const headline = document.getElementById("dt-headline");
+  const subline = document.getElementById("dt-subline");
+  const thead = document.getElementById("dt-thead");
+  const tbody = document.getElementById("dt-tbody");
+  headline.textContent = v.headline;
+  subline.textContent = v.subline;
+
+  // 判断单元格是否为数字类内容（用于右对齐加粗）
+  function isNumLike(s) {
+    return /^[+\-−(（]?[0-9]/.test(s) || /[%]$/.test(s) || /^[¥$€£]/.test(s);
+  }
+
+  // 表头
+  const columns = String(v.columns || "").split(",").map(function (s) { return s.trim(); }).filter(Boolean).slice(0, 4);
+  const headTr = document.createElement("tr");
+  for (const col of columns) {
+    const th = document.createElement("th");
+    th.textContent = col;
+    headTr.appendChild(th);
+  }
+  thead.appendChild(headTr);
+
+  // 数据行（分号分隔，行内逗号分隔）
+  const rowStrs = String(v.rows || "").split(";").map(function (s) { return s.trim(); }).filter(Boolean).slice(0, 5);
+  const bodyTrs = [];
+  for (const rs of rowStrs) {
+    const cells = rs.split(",").map(function (s) { return s.trim(); }).slice(0, columns.length);
+    const tr = document.createElement("tr");
+    for (let ci = 0; ci < columns.length; ci++) {
+      const td = document.createElement("td");
+      const text = cells[ci] || "";
+      td.textContent = text;
+      if (ci > 0 && isNumLike(text)) td.classList.add("num");
+      tr.appendChild(td);
+    }
+    tbody.appendChild(tr);
+    bodyTrs.push(tr);
+  }
+
+  // 动画（相对时间，秒）：表头先淡入，数据行逐行浮现（每行间隔 0.5s）
+  const tl = gsap.timeline({ paused: true });
+  tl.from(headline, { opacity: 0, y: 40, duration: 0.5, ease: "power2.out" }, 0)
+    .from(subline, { opacity: 0, duration: 0.4 }, 0.2)
+    .from(thead, { opacity: 0, y: 20, duration: 0.45, ease: "power2.out" }, 0.4);
+  for (let i = 0; i < bodyTrs.length; i++) {
+    tl.from(bodyTrs[i], { opacity: 0, y: 30, duration: 0.45, ease: "power2.out" }, 0.9 + i * 0.5);
+  }
+  tl.to({}, { duration: 1.5 }); // 尾部停留
+
+  window.__timelines = window.__timelines || {};
+  window.__timelines["data-table-reveal"] = tl;
+})();
+</script>
+
+<style>
+[data-composition-id="data-table-reveal"] { background: var(--bg); color: var(--fg); width: 1920px; height: 1080px; position: relative; }
+  [data-composition-id="data-table-reveal"] .dt-wrap {
+    position: absolute; inset: 0; padding: 120px 200px;
+  }
+  [data-composition-id="data-table-reveal"] .headline {
+    font-size: 56px; font-weight: 600; letter-spacing: 1px;
+  }
+  [data-composition-id="data-table-reveal"] .subline {
+    font-size: 28px; color: var(--muted); margin-top: 10px;
+  }
+  [data-composition-id="data-table-reveal"] .table {
+    width: 100%; margin-top: 56px; border-collapse: collapse;
+  }
+  [data-composition-id="data-table-reveal"] th {
+    text-align: left; font-size: 32px; font-weight: 700; color: var(--fg);
+    padding: 24px 32px; border-bottom: 3px solid var(--accent);
+  }
+  [data-composition-id="data-table-reveal"] th:not(:first-child),
+  [data-composition-id="data-table-reveal"] td:not(:first-child) { text-align: right; }
+  [data-composition-id="data-table-reveal"] td {
+    font-size: 30px; padding: 22px 32px; color: var(--fg);
+    border-bottom: 1px solid var(--grid);
+  }
+  [data-composition-id="data-table-reveal"] td.num { font-weight: 600; }
+  /* 斑马纹：--grid 做底色 */
+  [data-composition-id="data-table-reveal"] tbody tr:nth-child(even) {
+    background: var(--grid);
+  }
+</style>
+</body>
+</html>

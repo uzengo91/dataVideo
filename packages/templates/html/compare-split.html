@@ -1,0 +1,169 @@
+<!doctype html>
+<html lang="zh-CN" data-composition-variables='[{"id": "headline", "type": "string", "label": "headline", "default": "\u5e74\u5ea6\u5bf9\u6bd4"}, {"id": "subline", "type": "string", "label": "subline", "default": "\u603b\u8425\u6536"}, {"id": "leftLabel", "type": "string", "label": "leftLabel", "default": "2023"}, {"id": "leftValue", "type": "string", "label": "leftValue", "default": "\u00a56.2\u4ebf"}, {"id": "rightLabel", "type": "string", "label": "rightLabel", "default": "2024"}, {"id": "rightValue", "type": "string", "label": "rightValue", "default": "\u00a58.5\u4ebf"}, {"id": "delta", "type": "string", "label": "delta", "default": "+37%"}, {"id": "deltaDir", "type": "string", "label": "deltaDir", "default": "up"}, {"id": "theme", "type": "string", "label": "theme", "default": "dark-finance"}]'>
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=1920, height=1080" />
+<script src="node_modules/gsap/dist/gsap.min.js"></script>
+<style>
+  /* 渲染器字体声明：OS 内置字体用 local() 满足确定性检查 */
+  @font-face { font-family: "PingFang SC"; src: local("PingFang SC"); }
+  @font-face { font-family: "Microsoft YaHei"; src: local("Microsoft YaHei"); }
+  @font-face { font-family: "Helvetica Neue"; src: local("Helvetica Neue"); }
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  html, body { width: 1920px; height: 1080px; overflow: hidden; }
+  body {
+    font-family: "PingFang SC", "Microsoft YaHei", "Helvetica Neue", Arial, sans-serif;
+    font-variant-numeric: tabular-nums;
+  }
+  /* ---------- 主题 ---------- */
+  .theme-dark-finance {
+    --bg: #0b0e14; --fg: #f5f7fa; --muted: #98a2b3;
+    --accent: #22c55e; --accent2: #ef4444; --grid: rgba(255,255,255,0.08);
+    background: var(--bg); color: var(--fg);
+  }
+  .theme-light-tech {
+    --bg: #f8fafc; --fg: #0f172a; --muted: #64748b;
+    --accent: #2563eb; --accent2: #dc2626; --grid: rgba(15,23,42,0.08);
+    background: var(--bg); color: var(--fg);
+  }
+
+  .theme-violet-trend {
+    --bg: #17102b; --fg: #f3efff; --muted: #a89ec9;
+    --accent: #a78bfa; --accent2: #fb7185; --grid: rgba(167,139,250,0.14);
+    background: var(--bg); color: var(--fg);
+  }
+  .theme-warm-sunrise {
+    --bg: #2a1608; --fg: #fff7ed; --muted: #d6b899;
+    --accent: #fb923c; --accent2: #ef4444; --grid: rgba(251,146,60,0.14);
+    background: var(--bg); color: var(--fg);
+  }
+  .theme-cool-mint {
+    --bg: #f2fbf6; --fg: #0f2e22; --muted: #5f8a78;
+    --accent: #10b981; --accent2: #f59e0b; --grid: rgba(16,185,129,0.12);
+    background: var(--bg); color: var(--fg);
+  }
+  .theme-ink-classic {
+    --bg: #101210; --fg: #f5f0e6; --muted: #a89f8d;
+    --accent: #d4af37; --accent2: #c0392b; --grid: rgba(212,175,55,0.12);
+    background: var(--bg); color: var(--fg);
+  }
+</style>
+</head>
+<body>
+<div id="compare-split" data-composition-id="compare-split"
+     data-width="1920" data-height="1080" data-start="0" data-duration="9">
+
+  <div class="cs-wrap">
+    <div class="cs-header">
+      <h1 id="cs-headline" class="headline"></h1>
+      <p id="cs-subline" class="subline"></p>
+    </div>
+    <div class="cs-cols">
+      <div class="col left">
+        <p id="cs-left-label" class="col-label"></p>
+        <p id="cs-left-value" class="col-value"></p>
+      </div>
+      <div id="cs-divider" class="divider"></div>
+      <div class="col right">
+        <p id="cs-right-label" class="col-label"></p>
+        <p id="cs-right-value" class="col-value"></p>
+      </div>
+    </div>
+    <div class="badge-slot">
+      <span id="cs-badge" class="badge up"><span id="cs-badge-arrow">▲</span> <span id="cs-badge-text"></span></span>
+    </div>
+  </div>
+</div>
+
+<script>
+(function () {
+  const root = document.getElementById("compare-split");
+  const v = window.__hyperframes
+    ? window.__hyperframes.getVariables()
+    : Object.fromEntries(JSON.parse(document.documentElement.getAttribute("data-composition-variables")).map(v => [v.id, v.default]));
+
+  // 主题切换
+  root.classList.add("theme-" + (v.theme || "dark-finance"));
+
+  // 文案注入
+  const headline = document.getElementById("cs-headline");
+  const subline = document.getElementById("cs-subline");
+  const leftLabel = document.getElementById("cs-left-label");
+  const leftValue = document.getElementById("cs-left-value");
+  const rightLabel = document.getElementById("cs-right-label");
+  const rightValue = document.getElementById("cs-right-value");
+  const badge = document.getElementById("cs-badge");
+  const badgeArrow = document.getElementById("cs-badge-arrow");
+  const badgeText = document.getElementById("cs-badge-text");
+
+  headline.textContent = v.headline;
+  subline.textContent = v.subline;
+  leftLabel.textContent = v.leftLabel;
+  leftValue.textContent = v.leftValue;
+  rightLabel.textContent = v.rightLabel;
+  rightValue.textContent = v.rightValue;
+  const dir = String(v.deltaDir) === "down" ? "down" : "up";
+  badgeArrow.textContent = dir === "down" ? "▼" : "▲";
+  badgeText.textContent = v.delta;
+  badge.className = "badge " + dir;
+
+  // 动画（相对时间，秒）：左栏先入，右栏随后，徽章最后弹出；入场 1.5s 内完成
+  const tl = gsap.timeline({ paused: true });
+  tl.from(headline, { opacity: 0, y: 40, duration: 0.5, ease: "power2.out" }, 0)
+    .from(subline, { opacity: 0, duration: 0.35 }, 0.15)
+    .from(leftLabel, { opacity: 0, y: 30, duration: 0.4, ease: "power2.out" }, 0.45)
+    .from(leftValue, { opacity: 0, y: 30, duration: 0.45, ease: "power2.out" }, 0.55)
+    .from(rightLabel, { opacity: 0, y: 30, duration: 0.4, ease: "power2.out" }, 0.75)
+    .from(rightValue, { opacity: 0, scale: 0.85, duration: 0.5, ease: "back.out(1.6)" }, 0.85)
+    .from(badge, { opacity: 0, scale: 0.5, y: 20, duration: 0.35, ease: "back.out(2)" }, 1.15)
+    .to({}, { duration: 1.5 }); // 尾部停留
+
+  window.__timelines = window.__timelines || {};
+  window.__timelines["compare-split"] = tl;
+})();
+</script>
+
+<style>
+[data-composition-id="compare-split"] { background: var(--bg); color: var(--fg); width: 1920px; height: 1080px; position: relative; }
+  [data-composition-id="compare-split"] .cs-wrap {
+    position: absolute; inset: 0;
+    display: flex; flex-direction: column; padding: 120px 160px 100px;
+  }
+  [data-composition-id="compare-split"] .cs-header { text-align: center; }
+  [data-composition-id="compare-split"] .headline {
+    font-size: 56px; font-weight: 600; letter-spacing: 1px;
+  }
+  [data-composition-id="compare-split"] .subline {
+    font-size: 28px; color: var(--muted); margin-top: 10px;
+  }
+  [data-composition-id="compare-split"] .cs-cols {
+    flex: 1; display: flex; align-items: center; margin-top: 24px;
+  }
+  [data-composition-id="compare-split"] .col {
+    flex: 1; display: flex; flex-direction: column; align-items: center; gap: 24px;
+  }
+  [data-composition-id="compare-split"] .divider {
+    width: 2px; align-self: stretch; margin: 40px 0; background: var(--grid);
+  }
+  [data-composition-id="compare-split"] .col-label {
+    font-size: 36px; font-weight: 600; color: var(--muted);
+  }
+  [data-composition-id="compare-split"] .col-value {
+    font-size: 140px; font-weight: 700; line-height: 1; letter-spacing: -2px;
+  }
+  [data-composition-id="compare-split"] .col.right .col-value {
+    font-size: 200px; color: var(--accent); letter-spacing: -3px;
+  }
+  [data-composition-id="compare-split"] .badge-slot {
+    display: flex; justify-content: center; margin-top: 12px;
+  }
+  [data-composition-id="compare-split"] .badge {
+    display: inline-flex; align-items: center; gap: 14px;
+    font-size: 52px; font-weight: 700; padding: 16px 44px; border-radius: 999px;
+    background: var(--grid);
+  }
+  [data-composition-id="compare-split"] .badge.up { color: var(--accent); }
+  [data-composition-id="compare-split"] .badge.down { color: var(--accent2); }
+</style>
+</body>
+</html>

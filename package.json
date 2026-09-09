@@ -1,0 +1,22 @@
+{
+  "name": "data-news",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "engines": {
+    "node": ">=22"
+  },
+  "scripts": {
+    "dev:server": "pnpm --filter @data-news/server dev",
+    "dev:web": "pnpm --filter @data-news/web dev",
+    "demo": "pnpm --filter @data-news/pipeline demo",
+    "test": "pnpm -r --if-present test",
+    "typecheck": "pnpm -r --if-present typecheck",
+    "setup": "node scripts/setup.mjs"
+  },
+  "devDependencies": {
+    "tsx": "^4.19.2",
+    "typescript": "^5.7.3"
+  },
+  "packageManager": "pnpm@8.15.9"
+}

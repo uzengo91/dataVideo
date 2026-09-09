@@ -1,0 +1,33 @@
+{
+  "name": "@data-news/pipeline",
+  "version": "0.1.0",
+  "type": "module",
+  "main": "./src/index.ts",
+  "types": "./src/index.ts",
+  "exports": {
+    ".": "./src/index.ts",
+    "./demo": "./src/demo.ts"
+  },
+  "scripts": {
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run",
+    "demo": "tsx src/demo.ts",
+    "demo:video": "tsx src/demo-video.ts"
+  },
+  "dependencies": {
+    "@data-news/shared": "workspace:*",
+    "@data-news/llm": "workspace:*",
+    "@data-news/tts": "workspace:*",
+    "@data-news/templates": "workspace:*",
+    "gsap": "^3.12.5",
+    "zod": "^3.24.1",
+    "papaparse": "^5.4.1"
+  },
+  "devDependencies": {
+    "typescript": "^5.7.3",
+    "tsx": "^4.19.2",
+    "vitest": "^2.1.8",
+    "@types/node": "^22.10.5",
+    "@types/papaparse": "^5.3.15"
+  }
+}
