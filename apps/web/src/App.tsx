@@ -320,7 +320,7 @@ export default function App() {
                 {THEMES.map((t) => (
                   <button key={t.id} className={`theme-card ${script.theme === t.id ? "selected" : ""}`}
                     onClick={() => setScript({ ...script, theme: t.id })} title={t.hint}>
-                    <video src={`/api/samples/${script.scenes[0]?.template ?? "kpi-headline"}__${t.id}`} autoPlay muted loop playsInline
+                    <video src={`/api/samples/${script.scenes[0]?.template ?? "kpi-headline"}/${t.id}`} autoPlay muted loop playsInline
                       onError={(e) => ((e.target as HTMLVideoElement).style.display = "none")} />
                     <span className="theme-name">{t.label}</span>
                     <span className="theme-hint">{t.hint}</span>
@@ -357,7 +357,7 @@ export default function App() {
                       {templates.map((t) => <option key={t.id} value={t.id}>{t.name} · {t.hint}</option>)}
                     </select>
                     <div className="tpl-preview">
-                      <video src={`/api/samples/${s.template}__${script.theme}`} autoPlay muted loop playsInline
+                      <video src={`/api/samples/${s.template}/${script.theme}`} autoPlay muted loop playsInline
                         onError={(e) => ((e.target as HTMLVideoElement).style.display = "none")} />
                     </div>
                   </div>
