@@ -15,7 +15,7 @@ const ManifestSchema = z.object({
       variables: z.record(
         z.string(),
         z.object({
-          type: z.enum(["string", "number"]),
+          type: z.enum(["string", "number", "color", "enum", "boolean"]),
           required: z.boolean().optional(),
           maxLen: z.number().optional(),
           enum: z.array(z.string()).optional(),

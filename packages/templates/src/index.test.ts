@@ -4,7 +4,7 @@ import { loadManifest, getTemplate, validateSceneVars } from "./index.js";
 describe("templates manifest", () => {
   it("载入并含全部 10 套模板", async () => {
     const m = await loadManifest();
-    expect(m.templates).toHaveLength(10);
+    expect(m.templates.length).toBeGreaterThanOrEqual(14);
     expect(m.templates.map((t) => t.id)).toContain("kpi-headline");
   });
 

@@ -67,7 +67,10 @@ async function main() {
   for (const tpl of m.templates) {
     if (only.length && !only.includes(tpl.id)) continue;
     const htmlFile = path.join(TEMPLATE_PKG_ROOT, tpl.html);
-    for (const theme of THEMES) {
+    // 无 theme 变量的官方块：渲染一次，复制 6 份文件名（它们配色系统自带，不随主题变）
+    const hasTheme = Object.keys(tpl.variables).includes("theme");
+    const themesToRender = hasTheme ? THEMES : [THEMES[0]];
+    for (const theme of themesToRender) {
       const t0 = Date.now();
       try {
         await renderSample(tpl.id, theme, htmlFile, {});
@@ -75,6 +78,13 @@ async function main() {
         console.log(`${tpl.id} × ${theme}: ${(Date.now() - t0) / 1000 | 0}s`);
       } catch (e) {
         console.error(`${tpl.id} × ${theme}: FAIL ${(e as Error).message.slice(0, 120)}`);
+      }
+    }
+    // 复制到其余主题文件名
+    if (!hasTheme) {
+      const { copyFile: cp } = await import("node:fs/promises");
+      for (const theme of THEMES.slice(1)) {
+        await cp(path.join(SAMPLES_DIR, `${tpl.id}__${THEMES[0]}.mp4`), path.join(SAMPLES_DIR, `${tpl.id}__${theme}.mp4`)).catch(() => {});
       }
     }
   }

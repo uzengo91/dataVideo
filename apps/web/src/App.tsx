@@ -36,17 +36,10 @@ const SAMPLE_CSV = `月份,营收(万元),同比增长,毛利率
 5月,1560,21%,43.6
 6月,1712,23%,44.2`;
 
-const TEMPLATES = [
-  { id: "kpi-headline", name: "KPI 大字", hint: "单指标+增幅，适合财报开场或核心结论" },
-  { id: "number-counter", name: "数字滚动", hint: "数字从 0 冲到目标值，强调量级冲击" },
-  { id: "line-trend", name: "折线趋势", hint: "随时间变化的走势，标注峰值" },
-  { id: "bar-race", name: "柱状对比", hint: "若干类目的大小比较，最多 6 条" },
-  { id: "donut-share", name: "环形份额", hint: "构成百分比，最多 5 个类目" },
-  { id: "waterfall", name: "瀑布图", hint: "起点→各项增减→终点，利润桥/归因" },
-  { id: "geo-map", name: "区域榜单", hint: "地区/国家维度排行，最多 6 行" },
-  { id: "data-table-reveal", name: "报表揭示", hint: "原始数据逐行浮现，最多 5 行 4 列" },
-  { id: "compare-split", name: "左右对比", hint: "两个时期或对象的同口径指标" },
-  { id: "quote-insight", name: "结论金句", hint: "大字总结卡，适合收尾" },
+// 模板清单从后端 manifest 动态拉取（新增模板/官方块自动出现）；以下仅作为拉取前的兜底排序
+const TEMPLATE_ORDER = [
+  "kpi-headline", "number-counter", "line-trend", "bar-race", "donut-share",
+  "waterfall", "geo-map", "data-table-reveal", "compare-split", "quote-insight",
 ];
 
 const THEMES = [
@@ -95,6 +88,28 @@ export default function App() {
   const esRef = useRef<EventSource | null>(null);
   const [previewingVoice, setPreviewingVoice] = useState<"loading" | "playing" | `scene-${number}` | null>(null);
   const audioRef = useRef<HTMLAudioElement | null>(null);
+  const [templates, setTemplates] = useState<{ id: string; name: string; hint: string; sceneHint: string }[]>([]);
+
+  useEffect(() => {
+    fetch("/api/templates")
+      .then((r) => r.json())
+      .then((list: { id: string; name: string; description: string; sceneHint: string }[]) => {
+        const mapped = list.map((t) => ({
+          id: t.id,
+          name: t.name,
+          hint: t.sceneHint || t.description,
+          sceneHint: t.sceneHint,
+        }));
+        // 自研 10 套按固定顺序排前，官方块按 manifest 顺序跟后
+        mapped.sort((a, b) => {
+          const ia = TEMPLATE_ORDER.indexOf(a.id);
+          const ib = TEMPLATE_ORDER.indexOf(b.id);
+          return (ia === -1 ? 99 : ia) - (ib === -1 ? 99 : ib);
+        });
+        setTemplates(mapped);
+      })
+      .catch(() => {});
+  }, []);
 
   const playPreview = useCallback(async (text: string, voiceSel: typeof VOICES[number], key: "loading" | `scene-${number}`) => {
     setPreviewingVoice(key);
@@ -341,10 +356,10 @@ export default function App() {
                     <select
                       className="tpl-select"
                       value={s.template}
-                      title={`换模板：${TEMPLATES.find((t) => t.id === s.template)?.hint ?? ""}`}
+                      title={`换模板：${templates.find((t) => t.id === s.template)?.hint ?? ""}`}
                       onChange={(e) => patchScene(i, { template: e.target.value })}
                     >
-                      {TEMPLATES.map((t) => (
+                      {templates.map((t) => (
                         <option key={t.id} value={t.id}>{t.name} · {t.hint}</option>
                       ))}
                     </select>

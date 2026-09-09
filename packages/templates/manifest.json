@@ -516,6 +516,530 @@
           ]
         }
       }
+    },
+    {
+      "id": "bar-chart-race",
+      "name": "柱状竞赛图（官方）",
+      "description": "官方块：多序列随时间排名动态竞赛。",
+      "sceneHint": "多类目随时间演变排名",
+      "html": "html/bar-chart-race.html",
+      "duration": {
+        "min": 8,
+        "max": 15
+      },
+      "variables": {
+        "title": {
+          "type": "string",
+          "required": false
+        },
+        "subtitle": {
+          "type": "string",
+          "required": false
+        },
+        "periods": {
+          "type": "string",
+          "required": false
+        },
+        "series": {
+          "type": "string",
+          "required": false
+        },
+        "barCount": {
+          "type": "number",
+          "required": false
+        },
+        "periodDuration": {
+          "type": "number",
+          "required": false
+        },
+        "valuePrefix": {
+          "type": "string",
+          "required": false
+        },
+        "valueSuffix": {
+          "type": "string",
+          "required": false
+        },
+        "valueDecimals": {
+          "type": "number",
+          "required": false
+        },
+        "accent": {
+          "type": "color",
+          "required": false
+        }
+      }
+    },
+    {
+      "id": "oscilloscope-trace",
+      "name": "示波器波形（官方）",
+      "description": "官方块：示波器风格波形绘制，支持数据序列输入。",
+      "sceneHint": "信号/数据波形展示",
+      "html": "html/oscilloscope-trace.html",
+      "duration": {
+        "min": 6,
+        "max": 12
+      },
+      "variables": {
+        "waveform": {
+          "type": "enum",
+          "required": false,
+          "enum": [
+            "sine",
+            "square",
+            "triangle",
+            "data"
+          ]
+        },
+        "frequency": {
+          "type": "number",
+          "required": false,
+          "note": "单位 Hz"
+        },
+        "amplitude": {
+          "type": "number",
+          "required": false,
+          "note": "单位 div"
+        },
+        "persistenceMs": {
+          "type": "number",
+          "required": false,
+          "note": "单位 ms"
+        },
+        "phosphorColor": {
+          "type": "color",
+          "required": false
+        },
+        "sweepRate": {
+          "type": "number",
+          "required": false,
+          "note": "单位 sweeps/s"
+        },
+        "dataSeries": {
+          "type": "string",
+          "required": false
+        }
+      }
+    },
+    {
+      "id": "weight-wave",
+      "name": "文字压力波（官方）",
+      "description": "官方块：文字受波动压力的动感标题效果。",
+      "sceneHint": "冲击力大字标题",
+      "html": "html/weight-wave.html",
+      "duration": {
+        "min": 4,
+        "max": 10
+      },
+      "variables": {
+        "text": {
+          "type": "string",
+          "required": false,
+          "maxLen": 64
+        },
+        "color": {
+          "type": "color",
+          "required": false
+        },
+        "background": {
+          "type": "color",
+          "required": false
+        },
+        "weightFrom": {
+          "type": "number",
+          "required": false
+        },
+        "weightTo": {
+          "type": "number",
+          "required": false
+        },
+        "crestWidth": {
+          "type": "number",
+          "required": false,
+          "note": "单位 chars"
+        },
+        "sweepSpeed": {
+          "type": "number",
+          "required": false,
+          "note": "单位 passes/s"
+        },
+        "slant": {
+          "type": "number",
+          "required": false,
+          "note": "单位 deg"
+        },
+        "direction": {
+          "type": "enum",
+          "required": false,
+          "enum": [
+            "ltr",
+            "rtl"
+          ]
+        }
+      }
+    },
+    {
+      "id": "spiral-galaxy",
+      "name": "螺旋星系（官方）",
+      "description": "官方块：WebGL 螺旋星系粒子动画，背景/转场。",
+      "sceneHint": "震撼宇宙背景",
+      "html": "html/spiral-galaxy.html",
+      "duration": {
+        "min": 6,
+        "max": 12
+      },
+      "variables": {
+        "stars": {
+          "type": "number",
+          "required": false
+        },
+        "arms": {
+          "type": "number",
+          "required": false
+        },
+        "rate": {
+          "type": "number",
+          "required": false,
+          "note": "单位 rad/s"
+        },
+        "glow": {
+          "type": "number",
+          "required": false
+        },
+        "size": {
+          "type": "number",
+          "required": false,
+          "note": "单位 px"
+        },
+        "core": {
+          "type": "color",
+          "required": false
+        },
+        "rim": {
+          "type": "color",
+          "required": false
+        }
+      }
+    },
+    {
+      "id": "mk-line-graph",
+      "name": "折线图（官方）",
+      "description": "官方块：演示级折线图，1-2 组序列描线动画。",
+      "sceneHint": "1-2 组时间序列对比",
+      "html": "html/mk-line-graph.html",
+      "duration": {
+        "min": 6,
+        "max": 14
+      },
+      "variables": {
+        "headline": {
+          "type": "string",
+          "required": false,
+          "maxLen": 30
+        },
+        "subline": {
+          "type": "string",
+          "required": false,
+          "maxLen": 60
+        },
+        "labels": {
+          "type": "string",
+          "required": false,
+          "note": "逗号分隔的 X 轴标签，如 1月,2月,3月"
+        },
+        "series1": {
+          "type": "string",
+          "required": true,
+          "note": "逗号分隔数值，如 12,26,22"
+        },
+        "series2": {
+          "type": "string",
+          "required": false,
+          "note": "逗号分隔数值；留空则只画一条线"
+        },
+        "theme": {
+          "type": "string",
+          "required": true,
+          "enum": [
+            "dark-finance",
+            "light-tech",
+            "violet-trend",
+            "warm-sunrise",
+            "cool-mint",
+            "ink-classic"
+          ]
+        }
+      }
+    },
+    {
+      "id": "mk-progress-stat",
+      "name": "进度指标（官方）",
+      "description": "官方块：数值+进度轨道的统计卡。",
+      "sceneHint": "KPI 完成度/占比",
+      "html": "html/mk-progress-stat.html",
+      "duration": {
+        "min": 4,
+        "max": 10
+      },
+      "variables": {
+        "headline": {
+          "type": "string",
+          "required": false,
+          "maxLen": 30
+        },
+        "subline": {
+          "type": "string",
+          "required": false,
+          "maxLen": 60
+        },
+        "value": {
+          "type": "number",
+          "required": true,
+          "note": "当前值（大字滚动）"
+        },
+        "max": {
+          "type": "number",
+          "required": false,
+          "note": "轨道满格值，默认 30"
+        },
+        "label": {
+          "type": "string",
+          "required": false,
+          "maxLen": 16,
+          "note": "数值下方标签"
+        },
+        "caption": {
+          "type": "string",
+          "required": false,
+          "maxLen": 40,
+          "note": "补充说明"
+        },
+        "theme": {
+          "type": "string",
+          "required": true,
+          "enum": [
+            "dark-finance",
+            "light-tech",
+            "violet-trend",
+            "warm-sunrise",
+            "cool-mint",
+            "ink-classic"
+          ]
+        }
+      }
+    },
+    {
+      "id": "news-ticker",
+      "name": "新闻跑马灯（官方）",
+      "description": "官方块：底部滚动新闻条。",
+      "sceneHint": "快讯/多条目滚动",
+      "html": "html/news-ticker.html",
+      "duration": {
+        "min": 5,
+        "max": 12
+      },
+      "variables": {
+        "headline": {
+          "type": "string",
+          "required": false,
+          "maxLen": 40,
+          "note": "头条大字"
+        },
+        "subline": {
+          "type": "string",
+          "required": false,
+          "maxLen": 16,
+          "note": "台标小字（编辑室名）"
+        },
+        "items": {
+          "type": "string",
+          "required": false,
+          "note": "分号分隔的滚动条目，如 快讯一;快讯二"
+        },
+        "theme": {
+          "type": "string",
+          "required": true,
+          "enum": [
+            "dark-finance",
+            "light-tech",
+            "violet-trend",
+            "warm-sunrise",
+            "cool-mint",
+            "ink-classic"
+          ]
+        }
+      }
+    },
+    {
+      "id": "flowchart-vertical",
+      "name": "垂直流程图（官方）",
+      "description": "官方块：纵向流程节点依次点亮。",
+      "sceneHint": "流程/漏斗步骤",
+      "html": "html/flowchart-vertical.html",
+      "duration": {
+        "min": 6,
+        "max": 14
+      },
+      "variables": {
+        "headline": {
+          "type": "string",
+          "required": false,
+          "maxLen": 30
+        },
+        "subline": {
+          "type": "string",
+          "required": false,
+          "maxLen": 60
+        },
+        "nodes": {
+          "type": "string",
+          "required": false,
+          "note": "分号分隔节点文本（顺序：根,分叉A,分叉B,叶子A,叶子B,叶子C,叶子D），最多 7 项"
+        },
+        "theme": {
+          "type": "string",
+          "required": true,
+          "enum": [
+            "dark-finance",
+            "light-tech",
+            "violet-trend",
+            "warm-sunrise",
+            "cool-mint",
+            "ink-classic"
+          ]
+        }
+      }
+    },
+    {
+      "id": "apple-money-count",
+      "name": "金额滚动（官方）",
+      "description": "官方块：钞票雨中的金额计数动画。",
+      "sceneHint": "金额/收入冲击展示",
+      "html": "html/apple-money-count.html",
+      "duration": {
+        "min": 5,
+        "max": 12
+      },
+      "variables": {
+        "headline": {
+          "type": "string",
+          "required": false,
+          "maxLen": 30
+        },
+        "subline": {
+          "type": "string",
+          "required": false,
+          "maxLen": 60
+        },
+        "endValue": {
+          "type": "number",
+          "required": true,
+          "note": "滚动目标金额"
+        },
+        "prefix": {
+          "type": "string",
+          "required": false,
+          "maxLen": 3,
+          "note": "货币符号，默认 $"
+        },
+        "theme": {
+          "type": "string",
+          "required": true,
+          "enum": [
+            "dark-finance",
+            "light-tech",
+            "violet-trend",
+            "warm-sunrise",
+            "cool-mint",
+            "ink-classic"
+          ]
+        }
+      }
+    },
+    {
+      "id": "us-map-bubble",
+      "name": "美国地图气泡（官方）",
+      "description": "官方块：美国地图城市气泡数据展示。",
+      "sceneHint": "美国市场城市数据",
+      "html": "html/us-map-bubble.html",
+      "duration": {
+        "min": 6,
+        "max": 14
+      },
+      "variables": {
+        "headline": {
+          "type": "string",
+          "required": false,
+          "maxLen": 30
+        },
+        "subline": {
+          "type": "string",
+          "required": false,
+          "maxLen": 60
+        },
+        "cities": {
+          "type": "string",
+          "required": false,
+          "note": "分号分隔，每项 城市名,纬度,经度,值；至少 3 条"
+        },
+        "theme": {
+          "type": "string",
+          "required": true,
+          "enum": [
+            "dark-finance",
+            "light-tech",
+            "violet-trend",
+            "warm-sunrise",
+            "cool-mint",
+            "ink-classic"
+          ]
+        }
+      }
+    },
+    {
+      "id": "world-map",
+      "name": "世界地图 GDP（官方）",
+      "description": "官方块：世界地图 Top5 国家 GDP 着色。",
+      "sceneHint": "国际对比数据",
+      "html": "html/world-map.html",
+      "duration": {
+        "min": 6,
+        "max": 14
+      },
+      "variables": {
+        "headline": {
+          "type": "string",
+          "required": false,
+          "maxLen": 30
+        },
+        "subline": {
+          "type": "string",
+          "required": false,
+          "maxLen": 60
+        },
+        "topCodes": {
+          "type": "string",
+          "required": false,
+          "note": "逗号分隔 ISO 3166-1 数字码（3 位补零），如 756,578,840"
+        },
+        "topValues": {
+          "type": "string",
+          "required": false,
+          "note": "逗号分隔数值，与 topCodes 一一对应"
+        },
+        "theme": {
+          "type": "string",
+          "required": true,
+          "enum": [
+            "dark-finance",
+            "light-tech",
+            "violet-trend",
+            "warm-sunrise",
+            "cool-mint",
+            "ink-classic"
+          ]
+        }
+      }
     }
   ]
 }
