@@ -1,4 +1,5 @@
 import { spawn } from "node:child_process";
+import { writeFile } from "node:fs/promises";
 import { access, constants } from "node:fs/promises";
 import path from "node:path";
 
@@ -98,12 +99,10 @@ export async function runCheck(workspaceDir: string, logFile?: string): Promise<
     child.stdout.on("data", (d: Buffer) => (out += d.toString()));
     child.stderr.on("data", (d: Buffer) => (out += d.toString()));
     child.on("error", (e) => resolve({ ok: false, output: String(e) }));
-    child.on("close", (code) => {
+    child.on("close", () => {
       // check 的退出码不稳定（1 可能只是警告），以输出中的 "N error(s)" 计数为准
       if (logFile) {
-        import("node:fs/promises")
-          .then((fs) => fs.writeFile(logFile, out, "utf8"))
-          .catch(() => {});
+        writeFile(logFile, out, "utf8").catch(() => {});
       }
       resolve({ ok: !hasErrors(out), output: out });
     });

@@ -2,6 +2,7 @@ import Fastify from "fastify";
 import cors from "@fastify/cors";
 import fastifyStatic from "@fastify/static";
 import { readFile, stat, mkdtemp, rm as rmPath, access } from "node:fs/promises";
+import { existsSync } from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import { CreateJobRequestSchema } from "@data-news/shared";
@@ -11,6 +12,7 @@ import { ingestCsv } from "@data-news/pipeline";
 import { planScript } from "@data-news/pipeline";
 import { JobStore } from "./jobs.js";
 import { resolveProvider, synthesizeByVoiceName, engineCatalog } from "@data-news/tts";
+import { spawn } from "node:child_process";
 import { loadSettings, saveSettings, setDataDir } from "@data-news/settings";
 import { ArkClient } from "@data-news/llm";
 
@@ -27,10 +29,11 @@ if (process.env.STANDALONE === "1") {
   ];
   let webRoot = candidates[0];
   for (const c of candidates) {
-    if (await access(path.join(c, "index.html")).then(() => true).catch(() => false)) { webRoot = c; break; }
+    if (existsSync(path.join(c, "index.html"))) { webRoot = c; break; }
   }
   void app.register(fastifyStatic, { root: webRoot, prefix: "/" });
 }
+
 
 if (process.env.JOB_DATA_DIR) setDataDir(process.env.JOB_DATA_DIR);
 const store = new JobStore();
@@ -295,12 +298,10 @@ const start = async () => {
     // 本地软件体验：启动后自动打开浏览器（standalone 模式）
     if (process.env.STANDALONE === "1" && !process.env.NO_OPEN) {
       const mod = process.platform === "darwin" ? "open" : process.platform === "win32" ? "start" : "xdg-open";
-      import("node:child_process").then(({ spawn }) => {
-        const child = spawn(mod, process.platform === "win32" ? ["", `http://localhost:${PORT}`] : [`http://localhost:${PORT}`], {
-          shell: process.platform === "win32", detached: true, stdio: "ignore",
-        });
-        child.unref();
+      const child = spawn(mod, process.platform === "win32" ? ["", `http://localhost:${PORT}`] : [`http://localhost:${PORT}`], {
+        shell: process.platform === "win32", detached: true, stdio: "ignore",
       });
+      child.unref();
     }
   } catch (e) {
     app.log.error(e);
